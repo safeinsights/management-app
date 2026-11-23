@@ -5,7 +5,14 @@ import { CODER_DISABLED, env } from '@/server/config'
 const CONFIG_PARAMETER = '/safeinsights/microvm-ide'
 
 export type MicrovmConfig = {
-    imageArn: string
+    // The hash of the IDE layer that every image carries. An image built on another hash is rebuilt.
+    layerHash: string
+    layerSourceUri: string
+    // A code environment's image is named this plus the hash of its url.
+    imageNamePrefix: string
+    baseRepositoryName: string
+    // Removed in Task 6.
+    imageArn?: string
     executionRoleArn: string
     egressConnectorArn: string
     sampleDataSecrets: string[]
@@ -24,9 +31,11 @@ const loadConfig = async (): Promise<MicrovmConfig> => {
     return JSON.parse(Parameter!.Value!)
 }
 
+// Set by iac's ManagementAppStack where the research IDE runs in Lambda MicroVMs instead of Coder.
+export const isMicrovmBackend = () => !CODER_DISABLED && env.IDE_BACKEND === 'microvm'
+
 export function getMicrovmConfig(): Promise<MicrovmConfig | null> {
-    // Set by iac's ManagementAppStack where the research IDE runs in Lambda MicroVMs instead of Coder.
-    if (CODER_DISABLED || env.IDE_BACKEND !== 'microvm') return Promise.resolve(null)
+    if (!isMicrovmBackend()) return Promise.resolve(null)
     // A failed load is not cached, so the next request retries instead of falling back to Coder.
     configPromise ??= loadConfig().catch((e) => {
         configPromise = undefined

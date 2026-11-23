@@ -1,0 +1,132 @@
+import { randomUUID } from 'node:crypto'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { db } from '@/database'
+import { triggerMicrovmImageBuild } from '@/server/aws'
+import { getMicrovmConfig, type MicrovmConfig } from './config'
+import { claimImageBuild, requestImageBuild, urlHash } from './images'
+
+vi.mock('@/server/aws', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/aws')>()),
+    triggerMicrovmImageBuild: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('./config', () => ({ getMicrovmConfig: vi.fn(), isMicrovmBackend: () => true }))
+vi.mock('@/lib/logger', () => ({
+    __esModule: true,
+    default: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
+vi.mock('@/server/config', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/config')>()),
+    SIMULATE_CODE_BUILD: false,
+}))
+
+const config = { layerHash: 'layer-1', layerSourceUri: 's3://assets/layer.zip' } as MicrovmConfig
+const newUrl = () => `example.com/r-base:${randomUUID()}`
+const rowFor = (url: string) =>
+    db.selectFrom('microvmImage').selectAll('microvmImage').where('url', '=', url).executeTakeFirstOrThrow()
+
+beforeEach(() => {
+    vi.mocked(triggerMicrovmImageBuild).mockClear()
+    vi.mocked(getMicrovmConfig).mockResolvedValue(config)
+})
+
+describe('urlHash', () => {
+    // iac's build job names the image and the ECR tag with this value, so it is a contract.
+    it('is the first 16 hex characters of the SHA-256 of the url', () => {
+        expect(urlHash('harbor.safeinsights.org/openstax/r-base:2025-05-15')).toBe('f3c76c4be76a1d88')
+    })
+})
+
+describe('claimImageBuild', () => {
+    it('claims a url that has no row', async () => {
+        const url = newUrl()
+        expect(await claimImageBuild(db, url, 'layer-1')).toBe(true)
+        expect(await rowFor(url)).toMatchObject({ status: 'IMAGE-PENDING', attemptedLayerHash: 'layer-1' })
+    })
+
+    // Two code environments with one url, saved together, must give one build.
+    it('refuses a second claim while a build is in progress', async () => {
+        const url = newUrl()
+        await claimImageBuild(db, url, 'layer-1')
+        expect(await claimImageBuild(db, url, 'layer-1')).toBe(false)
+        expect(await claimImageBuild(db, url, 'layer-2')).toBe(false)
+    })
+
+    it('refuses a url whose image is already built on this layer', async () => {
+        const url = newUrl()
+        await claimImageBuild(db, url, 'layer-1')
+        await db
+            .updateTable('microvmImage')
+            .set({ status: 'IMAGE-READY', imageVersion: '1.0' })
+            .where('url', '=', url)
+            .execute()
+        expect(await claimImageBuild(db, url, 'layer-1')).toBe(false)
+    })
+
+    it('claims a built url when the layer has changed, and keeps the usable version', async () => {
+        const url = newUrl()
+        await claimImageBuild(db, url, 'layer-1')
+        await db
+            .updateTable('microvmImage')
+            .set({ status: 'IMAGE-READY', imageVersion: '1.0' })
+            .where('url', '=', url)
+            .execute()
+        expect(await claimImageBuild(db, url, 'layer-2')).toBe(true)
+        expect(await rowFor(url)).toMatchObject({
+            status: 'IMAGE-PENDING',
+            attemptedLayerHash: 'layer-2',
+            imageVersion: '1.0',
+        })
+    })
+
+    // The reconcile must not start the same failed build every 15 minutes, but an admin who saves
+    // the url again after correcting the image in Harbor must get a new build.
+    it('claims a build that failed on this layer only when asked to retry', async () => {
+        const url = newUrl()
+        await claimImageBuild(db, url, 'layer-1')
+        await db
+            .updateTable('microvmImage')
+            .set({ status: 'IMAGE-FAILED', error: 'BASE_IMAGE_UNAVAILABLE' })
+            .where('url', '=', url)
+            .execute()
+        expect(await claimImageBuild(db, url, 'layer-1')).toBe(false)
+        expect(await claimImageBuild(db, url, 'layer-1', { retryFailed: true })).toBe(true)
+        expect(await rowFor(url)).toMatchObject({ status: 'IMAGE-PENDING', error: null })
+    })
+})
+
+describe('requestImageBuild', () => {
+    it('starts one build for a new url, with the hash and the current layer', async () => {
+        const url = newUrl()
+        await requestImageBuild(db, url)
+        await requestImageBuild(db, url)
+        expect(triggerMicrovmImageBuild).toHaveBeenCalledTimes(1)
+        expect(triggerMicrovmImageBuild).toHaveBeenCalledWith({
+            url,
+            urlHash: urlHash(url),
+            layerHash: 'layer-1',
+            layerSourceUri: 's3://assets/layer.zip',
+        })
+    })
+
+    it('does nothing where the IDE is not on MicroVMs', async () => {
+        vi.mocked(getMicrovmConfig).mockResolvedValue(null)
+        const url = newUrl()
+        await requestImageBuild(db, url)
+        expect(triggerMicrovmImageBuild).not.toHaveBeenCalled()
+        expect(
+            await db.selectFrom('microvmImage').select('id').where('url', '=', url).executeTakeFirst(),
+        ).toBeUndefined()
+    })
+
+    // A build that never started has no job to report its failure, and the reconcile must try again.
+    it('marks the row failed and open to a retry when the build cannot be started', async () => {
+        vi.mocked(triggerMicrovmImageBuild).mockRejectedValueOnce(new Error('throttled'))
+        const url = newUrl()
+        await requestImageBuild(db, url)
+        expect(await rowFor(url)).toMatchObject({
+            status: 'IMAGE-FAILED',
+            error: 'BUILD_NOT_STARTED',
+            attemptedLayerHash: null,
+        })
+    })
+})
