@@ -8,6 +8,7 @@ usage() {
 Usage:
   run-local test <rules folder> <test files folder> [options]
   run-local scan <submission folder> <rules folder> [options]
+  run-local gate <rules folder> <test files folder> [options]
 
 Options:
   --build          Build the image first (the build script of the package).
@@ -53,7 +54,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [ "$MODE" != test ] && [ "$MODE" != scan ] || [ -z "$ARG2" ]; then
+if [ "$MODE" != test ] && [ "$MODE" != scan ] && [ "$MODE" != gate ] || [ -z "$ARG2" ]; then
     usage >&2
     exit 64
 fi
@@ -82,6 +83,7 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || {
 ID="semgrep-runner-local-$$-$RANDOM"
 NET="$ID"
 LAMBDA="$ID-lambda"
+LOCAL_VERSION=v1
 S3="$ID-s3"
 KEY=local-s3
 
@@ -94,8 +96,19 @@ trap 'exit 130' INT TERM
 
 docker network create "$NET" >/dev/null
 
-if [ "$MODE" = scan ]; then
-    echo "Starting a throwaway S3 (SeaweedFS) and uploading the submission and the rules ..." >&2
+if [ "$MODE" = scan ] || [ "$MODE" = gate ]; then
+    # Scan and gate read a version from S3, as in production: stage it with its manifest first.
+    if [ "$MODE" = scan ]; then
+        STAGE_RULES="$DIR2"; STAGE_TESTS="$DIR2"; STAGE_ARG=notests
+    else
+        STAGE_RULES="$DIR1"; STAGE_TESTS="$DIR2"; STAGE_ARG=tests
+    fi
+    STAGE="$(mktemp -d "${TMPDIR:-/tmp}/semgrep-runner-stage.XXXXXX")"
+    docker run --rm --platform linux/amd64 --entrypoint /var/lang/bin/node \
+        -v "$SCRIPT_DIR:/local:ro" -v "$STAGE_RULES:/in/rules:ro" -v "$STAGE_TESTS:/in/tests:ro" -v "$STAGE:/out" \
+        "$IMAGE" /local/stage.ts "$LOCAL_VERSION" "$STAGE_ARG" >&2
+    echo "Staged version: $STAGE" >&2
+    echo "Starting a throwaway S3 (SeaweedFS) and uploading the staged version ..." >&2
     docker run -d --name "$S3" --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
         chrislusf/seaweedfs server -s3 -dir=/data >/dev/null
     ready=0
@@ -110,11 +123,13 @@ if [ "$MODE" = scan ]; then
     done
     [ "$ready" = 1 ] || { echo "The local S3 did not start." >&2; exit 70; }
     docker run --rm --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
-        -e AWS_DEFAULT_REGION=us-east-1 -v "$DIR1:/in:ro" amazon/aws-cli --endpoint-url "http://$S3:8333" \
-        s3 cp --quiet --recursive /in s3://local/submission/
-    docker run --rm --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
-        -e AWS_DEFAULT_REGION=us-east-1 -v "$DIR2:/in:ro" amazon/aws-cli --endpoint-url "http://$S3:8333" \
-        s3 cp --quiet --recursive /in s3://local/rulesets/dev/local/rules/
+        -e AWS_DEFAULT_REGION=us-east-1 -v "$STAGE:/stage:ro" amazon/aws-cli --endpoint-url "http://$S3:8333" \
+        s3 cp --quiet --recursive /stage "s3://local/rulesets/dev/$LOCAL_VERSION/"
+    if [ "$MODE" = scan ]; then
+        docker run --rm --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
+            -e AWS_DEFAULT_REGION=us-east-1 -v "$DIR1:/in:ro" amazon/aws-cli --endpoint-url "http://$S3:8333" \
+            s3 cp --quiet --recursive /in s3://local/submission/
+    fi
 fi
 
 # The Lambda limits: read-only file system, /tmp of 512 MB (the Lambda default), and no /dev/shm.
