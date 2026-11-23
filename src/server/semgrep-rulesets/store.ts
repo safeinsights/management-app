@@ -11,6 +11,7 @@ import {
     RULESET_POINTER_FILE,
     rulesetDraftFilesSchema,
     rulesetPointerSchema,
+    rulesetRequestSchema,
     rulesetVersionNumber,
     type RulesetDraftFile,
     type RulesetPointer,
@@ -57,6 +58,12 @@ export async function readPublished(env: RulesetEnv): Promise<{ pointer: Ruleset
     const object = await readIfPresent(pointerKey(env))
     if (!object) return null
     return { pointer: rulesetPointerSchema.parse(JSON.parse(object.body)), etag: object.etag }
+}
+
+export async function readRequest(env: RulesetEnv, requestId: string) {
+    const object = await readIfPresent(requestKey(env, requestId))
+    if (!object) return null
+    return { record: rulesetRequestSchema.parse(JSON.parse(object.body)), etag: object.etag }
 }
 
 export async function readManifest(env: RulesetEnv, version: string): Promise<RulesetManifest | null> {

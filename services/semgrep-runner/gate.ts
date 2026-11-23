@@ -1,4 +1,5 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3'
+import { posix } from 'node:path'
 import type { RulesetStorage } from './config.ts'
 import {
     GATE_CHECKS,
@@ -199,13 +200,18 @@ function sectionFailures(path: string, text: string, findings: CoverageFinding[]
  * has a finding, and no ERROR or WARNING finding lands after the marker or anywhere in tests/corpus/.
  * testFiles maps each path relative to tests/ to its text.
  */
-export function evaluateCoverage({
-    report,
-    testFiles,
-}: {
-    report: SemgrepOutput
-    testFiles: Map<string, string>
-}): GateCheck {
+export type CoverageInput = { report: SemgrepOutput; testFiles: Map<string, string> }
+
+export function evaluateCoverage(input: CoverageInput): GateCheck {
+    return gateCheck('coverage', coverageFailures(input))
+}
+
+// The fixture sections and the legitimate code, plus the regression findings of check-coverage.ts.
+export function coverageCheck(input: CoverageInput): GateCheck {
+    return gateCheck('coverage', [...coverageFailures(input), ...regressionFailures(input.report, input.testFiles)])
+}
+
+function coverageFailures({ report, testFiles }: CoverageInput): string[] {
     const failures: string[] = []
     for (const error of report.errors ?? []) {
         failures.push(
@@ -236,7 +242,50 @@ export function evaluateCoverage({
         }
     }
     if (legitimateFiles === 0) failures.push('no legitimate research code to check')
-    return gateCheck('coverage', failures)
+    return failures
+}
+
+// Matched on the reported path's basename, as check-coverage.ts does, so notebook extracts match too.
+// A null line means any line: a notebook's line numbers depend on its JSON layout.
+export const REGRESSION_FINDINGS: [file: string, line: number | null, rule: string][] = [
+    ['.Rprofile.R', 1, 'r-shell-command'],
+    ['Rprofile.site.R', 1, 'r-shell-command'],
+    ['inline.qmd.R', 1, 'r-shell-command'],
+    ['quarto.qmd.R', 1, 'r-shell-command'],
+    ['multiline.Rmd.R', 1, 'r-shell-command'],
+    ['quoted.Rmd.R', 2, 'r-shell-command'],
+    ['nested.Rmd.R', 3, 'r-shell-command'],
+    ['study.Rmarkdown.R', 2, 'r-shell-command'],
+    ['analysis.ipynb.py', null, 'py-shell-command'],
+    ['analysis.ipynb', null, 'notebook-shell-magic'],
+    ...[2, 6, 10, 14, 18].map((line): [string, number, string] => [
+        'notebook.Rmd',
+        line,
+        'notebook-unsupported-engine',
+    ]),
+]
+
+function regressionFailures(report: SemgrepOutput, testFiles: Map<string, string>): string[] {
+    const results = report.results ?? []
+    const failures: string[] = []
+    for (const [file, line, rule] of REGRESSION_FINDINGS) {
+        const found = results.some(
+            (r) =>
+                posix.basename(r.path) === file &&
+                (line === null || r.start.line === line) &&
+                r.check_id.endsWith(rule),
+        )
+        if (!found) failures.push(`${file}${line === null ? '' : `:${line}`}: no ${rule} finding`)
+    }
+    // A secrets.r example marked ok: must stay clean. The finding's line sits under the ok: comment.
+    for (const r of results) {
+        if (posix.basename(r.path) !== 'secrets.r' || !GATING_SEVERITIES.has(r.extra.severity)) continue
+        const lines = (testFiles.get(submissionPath(r.path)) ?? '').split('\n')
+        if (lines[r.start.line - 2]?.includes('ok:')) {
+            failures.push(`secrets.r:${r.start.line}: ${r.check_id} fires on an ok example`)
+        }
+    }
+    return failures
 }
 
 // Paths in version.json that are test files, relative to tests/.

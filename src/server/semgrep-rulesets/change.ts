@@ -2,7 +2,12 @@ import { z } from 'zod'
 import logger from '@/lib/logger'
 import { PROMOTE_CHANGE_NOTE_MAX } from '@/schema/semgrep-ruleset'
 import { rulesetVersionNumber, type RulesetRequest } from '@/lib/semgrep-rulesets/schemas'
-import { rulesetPersonSchema, rulesetVersionSchema, type GateResponse } from '../../../services/semgrep-runner/protocol'
+import {
+    GATE_CHECKS,
+    rulesetPersonSchema,
+    rulesetVersionSchema,
+    type GateResponse,
+} from '../../../services/semgrep-runner/protocol'
 import { semgrepRulesetConfig, type SemgrepRulesetConfig } from './config'
 import { invokeGate, SemgrepRunnerFailed } from './runner'
 import { RulesetPreconditionFailed } from './s3'
@@ -12,6 +17,7 @@ import {
     finishRequest,
     readManifest,
     readPublished,
+    readRequest,
     readVersionFiles,
     writePointer,
 } from './store'
@@ -83,6 +89,37 @@ async function promote(
     return created.version
 }
 
+// A runner error or a response that does not answer this request is not a verdict on the rules.
+function gateEnding(target: string, gate: GateResponse): Ending | null {
+    if (gate.error) return ending('error', gate.error)
+    const names = gate.checks.map((check) => check.name)
+    const complete = names.length === GATE_CHECKS.length && GATE_CHECKS.every((name) => names.includes(name))
+    const allPassed = gate.checks.every((check) => check.passed && !check.skipped)
+    if (gate.rulesetVersion !== target || !complete || gate.passed !== allPassed) {
+        return ending('error', 'gate-response-mismatch')
+    }
+    return gate.passed ? null : ending('gate-failed')
+}
+
+async function upstreamMoved(config: SemgrepRulesetConfig, upstreamVersion: string): Promise<boolean> {
+    const upstream = config.upstreamEnv ? await readPublished(config.upstreamEnv) : null
+    return upstream?.pointer.version !== upstreamVersion
+}
+
+// A pointer write can land while its request record never gets the final write. The next change finds that
+// record here, so the outcome is recorded without publishing again.
+async function reconcileStuckRequest(config: SemgrepRulesetConfig): Promise<void> {
+    const current = await readPublished(config.env)
+    if (!current) return
+    const stuck = await readRequest(config.env, current.pointer.requestId)
+    if (stuck?.record.status !== 'running') return
+    await finishRequest(
+        config.env,
+        { ...stuck.record, status: 'published', reason: null, finishedAt: new Date().toISOString() },
+        stuck.etag,
+    )
+}
+
 async function applyChange(
     config: SemgrepRulesetConfig,
     payload: SemgrepRulesetChangePayload,
@@ -104,7 +141,13 @@ async function applyChange(
     const target = progress.targetVersion!
 
     progress.gate = await invokeGate(target, config.runnerFunctionName)
-    if (!progress.gate.passed) return ending('gate-failed')
+    const verdict = gateEnding(target, progress.gate)
+    if (verdict) return verdict
+
+    // Not atomic with the pointer write below: an upstream move in that gap still lands.
+    if (payload.kind === 'promote' && (await upstreamMoved(config, payload.upstreamVersion))) {
+        return ending('conflict', 'upstream published version changed')
+    }
 
     try {
         await writePointer(
@@ -154,6 +197,12 @@ export async function runRulesetChange(payload: SemgrepRulesetChangePayload): Pr
         status: 'running',
         reason: null,
         gate: null,
+    }
+
+    try {
+        await reconcileStuckRequest(config)
+    } catch (error) {
+        logger.error(error)
     }
 
     let etag: string

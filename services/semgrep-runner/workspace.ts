@@ -164,6 +164,18 @@ export async function downloadPrefix(s3: S3Client, download: PrefixDownload): Pr
     return files.length
 }
 
+/** Writes the listed files under the prefix into dir, keyed by their path below the prefix. */
+export async function downloadFiles(s3: S3Client, download: PrefixDownload, relatives: string[]): Promise<number> {
+    for (const relative of relatives) safeJoin(download.dir, relative)
+    if (!distinctPaths(relatives.map((relative) => ({ path: relative })))) throw new RunnerFailure('workspace-failed')
+
+    download.signal.throwIfAborted()
+    await forEachLimited(relatives, DOWNLOAD_CONCURRENCY, (relative) =>
+        downloadKey(s3, download, `${download.prefix}${relative}`, relative),
+    )
+    return relatives.length
+}
+
 const DOWNLOAD_CONCURRENCY = 16
 
 // Stops taking new items after the first failure, but waits for the ones in flight, so nothing still

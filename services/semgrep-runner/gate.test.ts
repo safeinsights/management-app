@@ -1,5 +1,14 @@
 import { describe, expect, it } from '../../tests/unit.helpers'
-import { evaluateCoverage, evaluateFixtures, evaluateIntegrity, evaluateRules, gateCheck, gateResult } from './gate.ts'
+import {
+    coverageCheck,
+    evaluateCoverage,
+    evaluateFixtures,
+    evaluateIntegrity,
+    evaluateRules,
+    gateCheck,
+    gateResult,
+    REGRESSION_FINDINGS,
+} from './gate.ts'
 import {
     GATE_FAILURE_MAX_CHARS,
     GATE_FAILURES_CAP,
@@ -210,5 +219,39 @@ describe('evaluateCoverage', () => {
     it('fails each Semgrep scan error', () => {
         const check = coverage(covered, { 'r-security.r': fixture }, [{ type: 'Timeout', path: 'notebooks/a.Rmd.R' }])
         expect(check.failures).toEqual(['semgrep error: Timeout a.Rmd'])
+    })
+})
+
+describe('coverageCheck regressions', () => {
+    const legitimate = { 'corpus/analysis.R': 'mean(x)' }
+    // One finding for each regression the gate asserts, as Semgrep reports it under notebooks/ or src/.
+    const allRegressions = (): SemgrepFinding[] =>
+        REGRESSION_FINDINGS.map(([file, line, rule]) => finding(`notebooks/${file}`, line ?? 1, 'ERROR', rule))
+    const withRegressions = (results: SemgrepFinding[], files: Record<string, string> = legitimate) =>
+        coverageCheck({ report: { results, errors: [] }, testFiles: new Map(Object.entries(files)) })
+
+    it('passes when every regression finding is present', () => {
+        expect(withRegressions(allRegressions())).toEqual({ name: 'coverage', passed: true, failures: [] })
+    })
+
+    it('fails a regression finding that is missing, by file and line', () => {
+        const results = allRegressions().filter((r) => !r.path.endsWith('/.Rprofile.R'))
+        expect(withRegressions(results).failures).toEqual(['.Rprofile.R:1: no r-shell-command finding'])
+    })
+
+    it('matches a notebook regression on any line', () => {
+        const results = allRegressions().map((r) =>
+            r.path.endsWith('analysis.ipynb') ? { ...r, start: { line: 40 } } : r,
+        )
+        expect(withRegressions(results).passed).toBe(true)
+    })
+
+    it('fails a gating finding on an ok example in secrets.r', () => {
+        const secrets = '# ok: secret\ntoken <- "x"\n'
+        const check = withRegressions(
+            [...allRegressions(), finding('src/secrets.r', 2, 'WARNING', 'secret-github-token')],
+            { ...legitimate, 'secrets.r': secrets },
+        )
+        expect(check.failures).toEqual(['secrets.r:2: rules.secret-github-token fires on an ok example'])
     })
 })

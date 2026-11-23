@@ -7,7 +7,6 @@ import { s3Available } from '../../tests/s3.helpers'
 import { s3BucketName } from '../../src/server/aws'
 import type { RulesetStorage } from './config.ts'
 import {
-    rulesetRulesPrefix,
     rulesetVersionPrefix,
     type GateRequest,
     type RulesetManifest,
@@ -17,6 +16,7 @@ import {
     type TestRequest,
 } from './protocol.ts'
 import { MAX_RESPONSE_BYTES, responseBytes } from './response-fit.ts'
+import { REGRESSION_FINDINGS } from './gate.ts'
 import { runRequest } from './run.ts'
 import {
     SEMGREP_BIN,
@@ -38,6 +38,15 @@ type FakeSemgrep = {
     validateStdout?: string
     onScan?: (cwd: string) => Partial<CommandResult> | void
 }
+
+// One finding for each regression the gate asserts, as Semgrep reports it under notebooks/.
+const regressionFindings = (): SemgrepFinding[] =>
+    REGRESSION_FINDINGS.map(([file, line, rule]) => ({
+        check_id: `rules.${rule}`,
+        path: `notebooks/${file}`,
+        start: { line: line ?? 1 },
+        extra: { severity: 'ERROR', message: rule },
+    }))
 
 const isValidate = (invocation: CommandInvocation) => invocation.args.includes('--validate')
 const isScan = (invocation: CommandInvocation) => invocation.args[0] === 'scan' && !isValidate(invocation)
@@ -314,9 +323,20 @@ describe.skipIf(!s3Available)('scan mode', () => {
         const prefix = `semgrep-runner-test-${id}/code`
         const version = `test-${id}`
         const ruleset = `rulesets/dev/${version}`
+        const manifest: RulesetManifest = {
+            schemaVersion: 1,
+            version,
+            env: 'dev',
+            createdAt: new Date().toISOString(),
+            author: { userId: null, name: 'test' },
+            changeNote: 'test version',
+            source: null,
+            files: Object.keys(rules),
+        }
         await upload({
             ...Object.fromEntries(Object.entries(submission).map(([k, v]) => [`${prefix}/${k}`, v])),
             ...Object.fromEntries(Object.entries(rules).map(([k, v]) => [`${ruleset}/${k}`, v])),
+            [`${ruleset}/version.json`]: JSON.stringify(manifest),
         })
         const request: ScanRequest = { mode: 'scan', submission: { bucket, prefix }, rulesetVersion: version }
         return { request, prefix }
@@ -380,12 +400,26 @@ describe.skipIf(!s3Available)('scan mode', () => {
         for (const { command, input } of rulesCalls) {
             expect(input.ExpectedBucketOwner).toBe(owner)
             if (command === 'ListObjectsV2Command') {
-                expect(input.Prefix).toBe(rulesetRulesPrefix('dev', request.rulesetVersion))
+                expect(input.Prefix).toBe(rulesetVersionPrefix('dev', request.rulesetVersion))
             }
         }
     })
 
-    it('does not run Semgrep on an empty ruleset', async () => {
+    it('reads no rule file the version.json does not list, so a file added after the gate is not scanned', async () => {
+        const { request } = await setup({ 'analysis.R': 'x <- 1' }, defaultRules)
+        await upload({ [`rulesets/dev/${request.rulesetVersion}/rules/added.yaml`]: 'rules: []' })
+        const fake = fakeSemgrep({ report: cannedReport })
+        const response = await runRequest(request, {
+            semgrep: fake.semgrep,
+            signal: signal(),
+            storage: storage(s3Client().client),
+        })
+
+        expect(response).toMatchObject({ outcome: 'DID-NOT-COMPLETE', error: 'manifest-invalid', semgrepJson: null })
+        expect(fake.calls).toHaveLength(0)
+    })
+
+    it('does not run Semgrep on a version without rule files', async () => {
         const { request } = await setup({ 'analysis.R': 'x <- 1' }, { 'tests/secrets.yaml': 'not a rule' })
         const fake = fakeSemgrep({ report: cannedReport })
         const response = await runRequest(request, {
@@ -394,7 +428,7 @@ describe.skipIf(!s3Available)('scan mode', () => {
             storage: storage(s3Client().client),
         })
 
-        expect(response).toMatchObject({ outcome: 'DID-NOT-COMPLETE', error: 'ruleset-empty', semgrepJson: null })
+        expect(response).toMatchObject({ outcome: 'DID-NOT-COMPLETE', error: 'manifest-invalid', semgrepJson: null })
         expect(response.log).toBe('Semgrep Scan: scan did not complete')
         expect(fake.calls).toHaveLength(0)
     })
@@ -577,7 +611,11 @@ describe.skipIf(!s3Available)('gate mode', () => {
         const request = await setup()
         const { client, sent } = s3Client()
         const fake = fakeSemgrep({
-            report: { results: [], errors: [], paths: { scanned: ['src/secrets.r', 'src/corpus/analysis.R'] } },
+            report: {
+                results: regressionFindings(),
+                errors: [],
+                paths: { scanned: ['src/secrets.r', 'src/corpus/analysis.R'] },
+            },
             onScan: (cwd) => {
                 expect(fs.readdirSync(path.join(cwd, 'rules'))).toEqual(['secrets.yaml'])
                 expect(fs.readFileSync(path.join(cwd, 'src/corpus/analysis.R'), 'utf-8')).toBe('mean(x)')

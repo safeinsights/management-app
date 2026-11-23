@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { RulesetStorage } from './config.ts'
 import {
-    evaluateCoverage,
+    coverageCheck,
     evaluateFixtures,
     evaluateIntegrity,
     evaluateRules,
@@ -16,7 +16,6 @@ import {
     isRuleFile,
     RULESET_RULES_DIR,
     RULESET_TESTS_DIR,
-    rulesetRulesPrefix,
     rulesetVersionPrefix,
     semgrepTestsResultSchema,
     type GateRequest,
@@ -43,6 +42,7 @@ import {
 import { scanInvocation, testInvocation, validateInvocation, type SemgrepCommand } from './semgrep-command.ts'
 import {
     createWorkspace,
+    downloadFiles,
     downloadPrefix,
     removeWorkspace,
     RunnerFailure,
@@ -119,11 +119,15 @@ function scanFailure(request: ScanRequest, error: RunnerError): ScanResponse {
     }
 }
 
+// The scan reads only the files that version.json lists, so a file added after the gate cannot change its rules.
 async function runScanMode(request: ScanRequest, deps: RunnerDeps): Promise<ScanResponse> {
     const { storage, signal } = deps
     if (!storage) throw new Error('scan mode needs the rules bucket configuration')
 
     try {
+        const { manifest, storedFiles } = await readGateVersion(storage, request.rulesetVersion, signal)
+        if (!evaluateIntegrity(manifest.files, storedFiles).passed) return scanFailure(request, 'manifest-invalid')
+
         return await withWorkspace(async (work) => {
             const prefix = request.submission.prefix.endsWith('/')
                 ? request.submission.prefix
@@ -138,15 +142,16 @@ async function runScanMode(request: ScanRequest, deps: RunnerDeps): Promise<Scan
             // Every submission has code, so no files means a wrong bucket or prefix, not an empty scan.
             if (files === 0) return scanFailure(request, 'submission-empty')
             signal.throwIfAborted()
-            const rules = await downloadPrefix(storage.s3, {
-                bucket: storage.rulesBucket,
-                prefix: rulesetRulesPrefix(storage.rulesetEnv, request.rulesetVersion),
-                dir: work.rules,
-                signal,
-                failure: 'ruleset-download-failed',
-                expectedBucketOwner: storage.rulesBucketOwner,
-                include: isRuleFile,
-            })
+            const rules = await downloadFiles(
+                storage.s3,
+                versionDownload(
+                    storage,
+                    signal,
+                    versionPath(storage, request.rulesetVersion, RULESET_RULES_DIR),
+                    work.rules,
+                ),
+                filesUnder(manifest.files, RULESET_RULES_DIR).filter(isRuleFile),
+            )
             if (rules === 0) return scanFailure(request, 'ruleset-empty')
 
             const scan = await scanWorkspace(work, deps)
@@ -233,20 +238,26 @@ async function runGateMode(request: GateRequest, deps: RunnerDeps): Promise<Gate
         if (!integrity.passed) return gateResult(request.rulesetVersion, [integrity, ...skippedChecks()])
 
         return await withWorkspace(async (work) => {
-            const prefix = rulesetVersionPrefix(storage.rulesetEnv, request.rulesetVersion)
-            const download = {
-                bucket: storage.rulesBucket,
-                signal,
-                failure: 'ruleset-download-failed' as const,
-                expectedBucketOwner: storage.rulesBucketOwner,
-            }
-            await downloadPrefix(storage.s3, {
-                ...download,
-                prefix: `${prefix}${RULESET_RULES_DIR}/`,
-                dir: work.rules,
-                include: isRuleFile,
-            })
-            await downloadPrefix(storage.s3, { ...download, prefix: `${prefix}${RULESET_TESTS_DIR}/`, dir: work.src })
+            await downloadFiles(
+                storage.s3,
+                versionDownload(
+                    storage,
+                    signal,
+                    versionPath(storage, request.rulesetVersion, RULESET_RULES_DIR),
+                    work.rules,
+                ),
+                filesUnder(manifest.files, RULESET_RULES_DIR).filter(isRuleFile),
+            )
+            await downloadFiles(
+                storage.s3,
+                versionDownload(
+                    storage,
+                    signal,
+                    versionPath(storage, request.rulesetVersion, RULESET_TESTS_DIR),
+                    work.src,
+                ),
+                testFilePaths(manifest),
+            )
             signal.throwIfAborted()
 
             const settled = await Promise.allSettled([
@@ -267,13 +278,28 @@ async function runGateMode(request: GateRequest, deps: RunnerDeps): Promise<Gate
                 integrity,
                 evaluateRules({ ...validate, stdout: withoutWorkRoot(validate.stdout, work.root) }, tests),
                 evaluateFixtures(tests, testsError),
-                evaluateCoverage({ report: scan.data, testFiles }),
+                coverageCheck({ report: scan.data, testFiles }),
             ])
         })
     } catch (error) {
         return gateFailure(request, failureCode(error, signal))
     }
 }
+
+const versionPath = (storage: RulesetStorage, version: string, dir: string) =>
+    `${rulesetVersionPrefix(storage.rulesetEnv, version)}${dir}/`
+
+const versionDownload = (storage: RulesetStorage, signal: AbortSignal, prefix: string, dir: string) => ({
+    bucket: storage.rulesBucket,
+    prefix,
+    dir,
+    signal,
+    failure: 'ruleset-download-failed' as const,
+    expectedBucketOwner: storage.rulesBucketOwner,
+})
+
+const filesUnder = (files: string[], dir: string) =>
+    files.filter((file) => file.startsWith(`${dir}/`)).map((file) => file.slice(dir.length + 1))
 
 function settledValue<T>(result: PromiseSettledResult<T>): T {
     if (result.status === 'rejected') throw result.reason

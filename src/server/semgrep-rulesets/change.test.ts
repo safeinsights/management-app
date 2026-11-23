@@ -176,6 +176,40 @@ describe('gate failure', () => {
         expect(requestOf(bucket, 'dev', payload)).toMatchObject({ status: 'error', reason, targetVersion: 'v1' })
     })
 
+    it.each<[string, GateResponse, string]>([
+        [
+            'a runner error',
+            { mode: 'gate', rulesetVersion: 'v1', passed: false, checks: [], error: 'deadline' },
+            'deadline',
+        ],
+        ['a gate for another version', passingGate('v9'), 'gate-response-mismatch'],
+        [
+            'a missing check',
+            { ...passingGate('v1'), checks: passingGate('v1').checks.slice(1) },
+            'gate-response-mismatch',
+        ],
+        ['a pass with an error', { ...passingGate('v1'), error: 'deadline' }, 'deadline'],
+        [
+            'a pass that reports a failed check',
+            {
+                ...passingGate('v1'),
+                checks: passingGate('v1').checks.map((check) =>
+                    check.name === 'coverage' ? { ...check, passed: false, failures: ['x'] } : check,
+                ),
+            },
+            'gate-response-mismatch',
+        ],
+    ])('records %s as an error and keeps the pointer', async (_, gate, reason) => {
+        const bucket = stubRulesBucket()
+        stubRunner(() => gate)
+        await createVersions('dev', 1)
+        const payload = change({ kind: 'publish', version: 'v1' })
+        await run(payload)
+
+        expect(pointerOf(bucket, 'dev')).toBeUndefined()
+        expect(requestOf(bucket, 'dev', payload)).toMatchObject({ status: 'error', reason, targetVersion: 'v1' })
+    })
+
     it('records an error without calling a runner when none is configured', async () => {
         const bucket = stubRulesBucket({ env: 'dev', runner: false })
         const lambda = stubRunner()
@@ -333,6 +367,24 @@ describe('promotion', () => {
         })
     })
 
+    it('stops the promotion when the upstream published version moves during the gate', async () => {
+        const bucket = stubRulesBucket({ env: 'staging', upstreamEnv: 'dev' })
+        await createVersions('dev', 2)
+        markPublished(bucket, 'dev', 'v1')
+        stubRunner((version) => {
+            markPublished(bucket, 'dev', 'v2')
+            return passingGate(version)
+        })
+        const payload = change({ kind: 'promote', upstreamVersion: 'v1' })
+        await run(payload)
+
+        expect(pointerOf(bucket, 'staging')).toBeUndefined()
+        expect(requestOf(bucket, 'staging', payload)).toMatchObject({
+            status: 'conflict',
+            reason: 'upstream published version changed',
+        })
+    })
+
     it('creates no local version when no runner is configured', async () => {
         const bucket = stubRulesBucket({ env: 'dev' })
         await createVersions('dev', 1)
@@ -368,6 +420,29 @@ describe('concurrency', () => {
             gate: passingGate('v2'),
         })
         expect(pointerOf(bucket, 'dev')?.version).toBe('v3')
+    })
+
+    it('records a request whose pointer moved but whose final write failed as published on the next change', async () => {
+        const bucket = stubRulesBucket()
+        await createVersions('dev', 2)
+        const first = change({ kind: 'publish', version: 'v1' })
+        stubRunner((version) => {
+            // Another writer replaces the record during the gate, so the final conditional write fails.
+            if (version === 'v1')
+                bucket.put(
+                    `rulesets/dev/requests/${first.requestId}.json`,
+                    bucket.read(`rulesets/dev/requests/${first.requestId}.json`)!,
+                )
+            return passingGate(version)
+        })
+        await expect(run(first)).rejects.toThrow()
+
+        expect(pointerOf(bucket, 'dev')?.version).toBe('v1')
+        expect(requestOf(bucket, 'dev', first)?.status).toBe('running')
+
+        await run(change({ kind: 'publish', version: 'v2' }))
+        expect(requestOf(bucket, 'dev', first)).toMatchObject({ status: 'published', targetVersion: 'v1' })
+        expect(pointerOf(bucket, 'dev')?.version).toBe('v2')
     })
 
     it('runs a message delivered twice only once', async () => {
