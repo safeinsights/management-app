@@ -119,6 +119,7 @@ export const DecisionConfirmationModal: FC<DecisionConfirmationModalProps> = ({
             title={config.title}
             body={config.body(labName)}
             confirmLabel={config.confirmLabel}
+            confirmLoadingLabel="Submitting"
             variant={config.variant}
         />
     )

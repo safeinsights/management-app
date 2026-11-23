@@ -41,10 +41,12 @@ export const submitCodeModalCopy = (orgName: string): ConfirmModalCopy => ({
     title: 'Submit code for review?',
     body: confirmCodeBody(orgName),
     confirmLabel: 'Submit code',
+    confirmLoadingLabel: 'Submitting',
 })
 
 export const resubmitCodeModalCopy = (orgName: string): ConfirmModalCopy => ({
     title: 'Resubmit your code for review?',
     body: confirmCodeBody(orgName),
     confirmLabel: 'Resubmit code',
+    confirmLoadingLabel: 'Resubmitting',
 })
