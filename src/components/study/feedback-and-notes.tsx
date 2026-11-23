@@ -32,19 +32,17 @@ function entryTitle(entry: FeedbackEntryShape): string {
     return label
 }
 
-const COLLAPSED_LINE_CLAMP = 3
-const COMPACT_LINE_CLAMP = 2
+const COLLAPSED_LINE_CLAMP = 2
 const COMPACT_VISIBLE_ENTRIES = 2
 
 type FeedbackEntryProps = {
     entry: FeedbackEntryShape
     isExpanded: boolean
     onToggle: () => void
-    lineClamp: number
     focusRef?: RefObject<HTMLDivElement | null>
 }
 
-function FeedbackEntry({ entry, isExpanded, onToggle, lineClamp, focusRef }: FeedbackEntryProps) {
+function FeedbackEntry({ entry, isExpanded, onToggle, focusRef }: FeedbackEntryProps) {
     const title = entryTitle(entry)
     const toggleLabel = isExpanded ? 'View less' : 'View more'
     const bodyRef = useRef<HTMLDivElement>(null)
@@ -59,7 +57,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle, lineClamp, focusRef }: Fee
         const check = () => {
             const lineHeight = parseFloat(getComputedStyle(node).lineHeight)
             if (Number.isFinite(lineHeight) && lineHeight > 0) {
-                setIsTruncated(node.scrollHeight > lineHeight * lineClamp + 1)
+                setIsTruncated(node.scrollHeight > lineHeight * COLLAPSED_LINE_CLAMP + 1)
                 return
             }
             setIsTruncated(node.scrollHeight > node.clientHeight)
@@ -69,7 +67,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle, lineClamp, focusRef }: Fee
         const observer = new ResizeObserver(check)
         observer.observe(node)
         return () => observer.disconnect()
-    }, [isExpanded, lineClamp])
+    }, [isExpanded])
 
     return (
         <Stack ref={focusRef} tabIndex={focusRef ? -1 : undefined} gap="sm" data-testid={`feedback-entry-${entry.id}`}>
@@ -91,7 +89,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle, lineClamp, focusRef }: Fee
                     size="sm"
                     component="div"
                     mt="sm"
-                    lineClamp={isExpanded ? undefined : lineClamp}
+                    lineClamp={isExpanded ? undefined : COLLAPSED_LINE_CLAMP}
                     data-testid={`feedback-body-${entry.id}`}
                 >
                     <ReadOnlyLexicalContent value={entry.body} label={`Feedback from ${entry.authorName}`} />
@@ -200,7 +198,6 @@ export function FeedbackEntries({
                         entry={entry}
                         isExpanded={isExpanded(entry.id)}
                         onToggle={() => toggle(entry.id)}
-                        lineClamp={compact ? COMPACT_LINE_CLAMP : COLLAPSED_LINE_CLAMP}
                         focusRef={focusRefFor(entry.id)}
                     />
                     {idx < visibleEntries.length - 1 && <Divider data-testid="entry-divider" />}
