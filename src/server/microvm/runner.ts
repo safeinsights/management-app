@@ -36,7 +36,7 @@ const START_POLL_MS = 250
 const REUSABLE: MicrovmState[] = ['PENDING', 'RUNNING', 'SUSPENDING', 'SUSPENDED']
 
 export type RunnerAnswer =
-    | { ready: true; endpoint: string; token: string; expiresAt: number; commandLines: CommandLines }
+    | { ready: true; id: string; endpoint: string; token: string; expiresAt: number; commandLines: CommandLines }
     | { ready: false; message: string }
 
 type RunnerRecord = { microvmId: string; imageVersion: string }
@@ -146,8 +146,9 @@ export async function ensureRunner(studyId: string, db: DBExecutor): Promise<Run
     }
 
     let record = await readRecord(config.workspacesBucket, studyId)
-    // A runner on an older version of the image is left to idle out; code must run on the current one.
-    let vm = record && record.imageVersion === image.imageVersion ? await runnerVm(record.microvmId) : null
+    // A runner that is in use keeps the image version it started with. A researcher's terminals are
+    // sessions on that VM; a new image version reaches the study when this runner has ended.
+    let vm = record ? await runnerVm(record.microvmId) : null
     if (!record || !vm || !REUSABLE.includes(vm.state)) {
         record = await startRunner(config, studyId, image)
         vm = await waitUntilStarted(record.microvmId)
@@ -166,6 +167,8 @@ export async function ensureRunner(studyId: string, db: DBExecutor): Promise<Run
     const { commandLines } = await fetchCodeEnvForStudyId(studyId, db)
     return {
         ready: true,
+        // The IDE's sync keeps a record for one runner; a new id tells it the record is void.
+        id: record.microvmId,
         endpoint: vm.endpoint.startsWith('https://') ? vm.endpoint : `https://${vm.endpoint}`,
         token: auth.authToken!['X-aws-proxy-auth'],
         expiresAt: Date.now() + TOKEN_MINUTES * 60_000,

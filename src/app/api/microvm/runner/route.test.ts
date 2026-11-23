@@ -25,6 +25,7 @@ beforeEach(() => {
     vi.mocked(verifySyncToken).mockImplementation(async (id, token) => id === studyId && token === 'the-sync-token')
     vi.mocked(ensureRunner).mockResolvedValue({
         ready: true,
+        id: 'runner-1',
         endpoint: 'https://runner',
         token: 't',
         expiresAt: 1,
@@ -53,6 +54,7 @@ test('answers with the way to the study runner', async () => {
     expect(resp.status).toBe(200)
     expect(await resp.json()).toEqual({
         ready: true,
+        id: 'runner-1',
         endpoint: 'https://runner',
         token: 't',
         expiresAt: 1,

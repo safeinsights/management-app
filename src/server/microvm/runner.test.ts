@@ -88,8 +88,10 @@ describe('ensureRunner', () => {
             idlePolicy: { maxIdleDurationSeconds: 20 * 60, autoResumeEnabled: true },
             logging: { cloudWatch: { logGroup: config.runnerLogGroup } },
         })
+        // The id lets the IDE's sync tell a new, empty runner from the one its record is about.
         expect(answer).toMatchObject({
             ready: true,
+            id: 'runner-new',
             endpoint: 'https://abc.lambda-microvm.example',
             token: 'the-runner-token',
             commandLines: { r: 'Rscript %f' },
@@ -153,20 +155,22 @@ describe('ensureRunner', () => {
         )
     })
 
-    // An org admin changed the image, or the agent changed. Code must not go on running on the old one.
-    it('starts a new runner when the image has a newer version', async () => {
+    // The spec's rule. A researcher's open terminals are on this VM; replacing it under them would
+    // leave them on one runner while the files sync with another.
+    it('keeps a runner that is in use on the image version it started with', async () => {
         const study = await studyWithImage({ imageVersion: '3.0' })
         s3.on(GetObjectCommand, { Key: `studies/${study.id}/runner.json` }).resolves({
             Body: body({ microvmId: 'runner-old', imageVersion: '2.0' }),
         })
 
-        await ensureRunner(study.id, db)
+        const answer = await ensureRunner(study.id, db)
 
-        expect(microvms.commandCalls(RunMicrovmCommand)[0].args[0].input.imageVersion).toBe('3.0')
+        expect(microvms.commandCalls(RunMicrovmCommand)).toHaveLength(0)
+        expect(answer).toMatchObject({ ready: true, id: 'runner-old' })
     })
 
-    it('starts a new runner when the one on record has ended', async () => {
-        const study = await studyWithImage({ imageVersion: '2.0' })
+    it('starts a new runner, on the current image version, when the one on record has ended', async () => {
+        const study = await studyWithImage({ imageVersion: '3.0' })
         s3.on(GetObjectCommand, { Key: `studies/${study.id}/runner.json` }).resolves({
             Body: body({ microvmId: 'runner-old', imageVersion: '2.0' }),
         })
@@ -179,5 +183,6 @@ describe('ensureRunner', () => {
         await ensureRunner(study.id, db)
 
         expect(microvms.commandCalls(RunMicrovmCommand)).toHaveLength(1)
+        expect(microvms.commandCalls(RunMicrovmCommand)[0].args[0].input.imageVersion).toBe('3.0')
     })
 })
