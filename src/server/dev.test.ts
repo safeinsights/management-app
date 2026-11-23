@@ -61,7 +61,7 @@ describe('initializeDevWorkspaceFiles', () => {
             vi.useRealTimers()
         }
 
-        const writtenFileStat = await fs.stat(`${TEST_CODER_FILES}/${study.id}/Main.R`)
+        const writtenFileStat = await fs.stat(`${TEST_CODER_FILES}/${study.id}/main.R`)
         const jobRow = await db
             .selectFrom('studyJob')
             .select('createdAt')
@@ -79,12 +79,12 @@ describe('initializeDevWorkspaceFiles', () => {
 
         const { initializeDevWorkspaceFiles } = await import('./dev')
         await initializeDevWorkspaceFiles(first.id)
-        await fs.writeFile(`${TEST_CODER_FILES}/${first.id}/Main.R`, 'user edits', 'utf-8')
+        await fs.writeFile(`${TEST_CODER_FILES}/${first.id}/main.R`, 'user edits', 'utf-8')
         await initializeDevWorkspaceFiles(second.id)
 
-        expect(await fs.readFile(`${TEST_CODER_FILES}/${first.id}/Main.R`, 'utf-8')).toBe('user edits')
-        expect(await fs.readFile(`${TEST_CODER_FILES}/${second.id}/Main.R`, 'utf-8')).toBe('starter content')
-        await expect(fs.stat(`${TEST_CODER_FILES}/Main.R`)).rejects.toMatchObject({ code: 'ENOENT' })
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${first.id}/main.R`, 'utf-8')).toBe('user edits')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${second.id}/main.R`, 'utf-8')).toBe('starter content')
+        await expect(fs.stat(`${TEST_CODER_FILES}/main.R`)).rejects.toMatchObject({ code: 'ENOENT' })
     })
 
     const seedContext = async (name: 'SYSTEM' | 'PYTHON' | 'R', content: string) => {
@@ -117,11 +117,11 @@ describe('initializeDevWorkspaceFiles', () => {
         const { initializeDevWorkspaceFiles } = await import('./dev')
         await initializeDevWorkspaceFiles(study.id)
 
-        await fs.writeFile(`${TEST_CODER_FILES}/${study.id}/Main.R`, 'user edits', 'utf-8')
+        await fs.writeFile(`${TEST_CODER_FILES}/${study.id}/main.R`, 'user edits', 'utf-8')
         await seedContext('SYSTEM', 'updated system context')
         await initializeDevWorkspaceFiles(study.id)
 
-        expect(await fs.readFile(`${TEST_CODER_FILES}/${study.id}/Main.R`, 'utf-8')).toBe('user edits')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${study.id}/main.R`, 'utf-8')).toBe('user edits')
         expect(await fs.readFile(`${TEST_CODER_FILES}/${study.id}/CLAUDE.md`, 'utf-8')).toBe(
             'updated system context\nr context\nNo data sources provided',
         )

@@ -38,7 +38,6 @@ import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { writeAgentContext } from '../context-writer'
-import { templateFileNameFor } from '@/lib/languages'
 import { currentDb } from '@/server/request-context'
 
 async function generateWorkspaceUrl(user: CoderUser, studyId: string): Promise<string> {
@@ -349,11 +348,6 @@ export const copyStarterCodeIntoWorkspace = async (studyId: string, executor: DB
 
     const studyDir = await getStudyFilesPath(studyId)
 
-    // The card names the first starter file Main.{x} after the language; any others keep their own
-    // name and carry no badge.
-    const templateName = templateFileNameFor(codeEnv.language)
-    const targetNameFor = (fileName: string, index: number) => (index === 0 ? templateName : fileName)
-
     // Backdated against the baseline studyJob, not wall-clock: provisioning can outlast a fixed
     // window, leaving files newer than the baseline and flipping Submit on with no user edits.
     const baselineCreatedAt = await latestStudyJobCreatedAt(executor, studyId)
@@ -371,9 +365,9 @@ export const copyStarterCodeIntoWorkspace = async (studyId: string, executor: DB
             `${starterFiles.length} starter file(s): [${starterFiles.join(', ')}]`,
     )
 
-    for (const [index, fileName] of starterFiles.entries()) {
+    for (const fileName of starterFiles) {
         const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
-        const targetFilePath = path.join(studyDir, targetNameFor(fileName, index))
+        const targetFilePath = path.join(studyDir, fileName)
 
         let fileData
         try {
@@ -394,7 +388,8 @@ export const copyStarterCodeIntoWorkspace = async (studyId: string, executor: DB
         logger.info(`${logCtx} wrote ${fileName} to ${targetFilePath}`)
     }
 
-    return templateName
+    // OTTER-1106: every file keeps its uploaded name; the first one is the template.
+    return starterFiles[0]
 }
 
 export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {

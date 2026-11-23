@@ -1674,10 +1674,9 @@ describe('StudyCode component', () => {
 
     describe('template badge (OTTER-693)', () => {
         /**
-         * The workspace file is `Main.R`, not the `main.R` the Data Partner uploaded: the copy
-         * renames the first starter file after the code env's language, and the badge matches that
-         * derived name. `baseline` decides whether it still counts as untouched: the badge keys off
-         * the file's mtime sitting at or before the baseline job, which is how the copy backdates it.
+         * The badge matches the first starter file's uploaded name. `baseline` decides whether it
+         * still counts as untouched: the badge keys off the file's mtime sitting at or before the
+         * baseline job, which is how the copy backdates it.
          */
         const renderWithTemplate = async ({
             baseline,
@@ -1698,12 +1697,12 @@ describe('StudyCode component', () => {
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
-                'Main.R': 'print("starter")',
+                'main.R': 'print("starter")',
                 'mine.R': 'print("mine")',
             })
             // What the pre-load persists, set before render because the page reads it on mount.
             if (isMain) {
-                await db.updateTable('study').set({ mainCodeFileName: 'Main.R' }).where('id', '=', study.id).execute()
+                await db.updateTable('study').set({ mainCodeFileName: 'main.R' }).where('id', '=', study.id).execute()
             }
 
             renderWithProviders(
@@ -1726,7 +1725,7 @@ describe('StudyCode component', () => {
             await renderWithTemplate({ baseline: 'pristine', isMain: true })
 
             await waitFor(() => {
-                expect(screen.getByRole('radio', { name: 'Main.R is the main file' })).toBeInTheDocument()
+                expect(screen.getByRole('radio', { name: 'main.R is the main file' })).toBeInTheDocument()
             })
             expect(screen.getByRole('radio', { name: 'Set mine.R as main file' })).toBeInTheDocument()
         })
@@ -1739,7 +1738,7 @@ describe('StudyCode component', () => {
 
                 await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
                 expect(screen.getAllByText('Template')).toHaveLength(1)
-                const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
+                const templateRow = screen.getByRole('button', { name: 'View main.R' }).closest('tr')
                 expect(templateRow).toHaveTextContent('Template')
             },
         )

@@ -188,7 +188,7 @@ async function uploadAndExpectFiles(page: Page, filePaths: string[]) {
 }
 
 export async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
-    // analysis.r avoids colliding with the Main.R template on case-insensitive macOS filesystems.
+    // analysis.r avoids colliding with the pre-loaded main.r template.
     await uploadAndExpectFiles(page, [mainCodeFile, 'tests/fixtures/code-samples/code.r'])
     const mainFileName = mainCodeFile.split('/').pop()!
 

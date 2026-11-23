@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
-import { templateFileNameFor } from '@/lib/languages'
 
 const dataSourceTypeKeys = Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]]
 
@@ -128,31 +127,6 @@ function bareExtension(fileName: string): string {
     return fileName.split('.').pop()?.toLowerCase() ?? ''
 }
 
-// New uploads replace the existing files wholesale, so they win when present.
-const effectiveStarterFileNames = (data: { starterCodes?: File[]; existingStarterCodeFileNames: string[] }) => {
-    const newFileNames = (data.starterCodes ?? []).map((f) => f.name)
-    return newFileNames.length > 0 ? newFileNames : data.existingStarterCodeFileNames
-}
-
-// OTTER-1106: the workspace copy renames the first file to the template name, so a later file
-// with that name would overwrite it. Case-insensitive because dev workspaces sit on macOS.
-const rejectTemplateNameCollision = (
-    data: { starterCodes?: File[]; existingStarterCodeFileNames: string[]; language: 'R' | 'PYTHON' },
-    ctx: z.RefinementCtx,
-) => {
-    const templateName = templateFileNameFor(data.language)
-    const collision = effectiveStarterFileNames(data)
-        .slice(1)
-        .find((name) => name.toLowerCase() === templateName.toLowerCase())
-    if (!collision) return
-
-    ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `The first file is renamed ${templateName}, so no other file can use that name. Rename ${collision}.`,
-        path: ['starterCodes'],
-    })
-}
-
 const requireCommandLineForEachExtension = (
     data: {
         starterCodes?: File[]
@@ -163,7 +137,8 @@ const requireCommandLineForEachExtension = (
     },
     ctx: z.RefinementCtx,
 ) => {
-    const fileNames = effectiveStarterFileNames(data)
+    const newFileNames = (data.starterCodes ?? []).map((f) => f.name)
+    const fileNames = newFileNames.length > 0 ? newFileNames : data.existingStarterCodeFileNames
     if (!fileNames.length) return
 
     const cmdLines = { ...data.commandLines }
@@ -186,12 +161,10 @@ export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
     .extend(newEnvVarFieldsSchema.shape)
     .superRefine(rejectDuplicateEnvVarName)
     .superRefine(requireCommandLineForEachExtension)
-    .superRefine(rejectTemplateNameCollision)
 
 export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema
     .extend(newEnvVarFieldsSchema.shape)
     .superRefine(rejectDuplicateEnvVarName)
     .superRefine(requireCommandLineForEachExtension)
-    .superRefine(rejectTemplateNameCollision)
 
 export const orgCodeEnvSchema = createOrgCodeEnvSchema

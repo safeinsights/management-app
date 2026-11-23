@@ -23,7 +23,6 @@ import { ensureRoundJobForLaunch, markStudyOpened } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { type DBExecutor } from '@/database'
-import { templateFileNameFor } from '@/lib/languages'
 import { canResearcherChangeCodeFiles } from '@/lib/study-screen'
 import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-code-gate'
 
@@ -188,7 +187,7 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
 
 /**
  * OTTER-693: copies the Data Partner's template into an empty workspace and stars it, so /code
- * opens on Main.{x}. Empty-only, so a replaced template never comes back. Opens no round job: a job
+ * opens on it. Empty-only, so a replaced template never comes back. Opens no round job: a job
  * reads as "Code draft", which only a launch or upload may start (OTTER-698).
  */
 export const ensureStarterCodePreloadAction = new Action('ensureStarterCodePreloadAction', {
@@ -270,10 +269,6 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
         const fileNames = codeEnv.starterCodeFileNames ?? []
         if (fileNames.length === 0) return { starterFiles: [], templateFileName: null }
 
-        // The workspace copy is renamed after the language, so this is the name the Template badge
-        // has to match — starterFiles still carry the uploaded names, which is what S3 is keyed on.
-        const templateFileName = templateFileNameFor(codeEnv.language)
-
         const { signedUrlForFile } = await import('@/server/aws')
         const { pathForStarterCode } = await import('@/lib/paths')
         // starterCodeFileNames holds bare names, not S3 keys.
@@ -286,7 +281,7 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
                 ),
             })),
         )
-        return { starterFiles, templateFileName }
+        return { starterFiles, templateFileName: fileNames[0] }
     })
 
 export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoAction', {})
