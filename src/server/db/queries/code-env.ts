@@ -1,7 +1,10 @@
 import { type DBExecutor } from '@/database'
 import type { CodeEnvSnapshot } from '@/database/types-manual'
+import { isMicrovmBackend } from '@/server/microvm/config'
 
 // The one rule for which code env a study runs: the org's newest non-testing env for its language.
+// Where the IDE runs on MicroVMs, a code env counts only once the image built from its url can be
+// launched, so a new one does not become the default while a researcher could not open it.
 export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
     return db
         .selectFrom('study')
@@ -10,6 +13,17 @@ export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
         )
         .where('study.id', '=', studyId)
         .where('orgCodeEnv.isTesting', '=', false)
+        .$if(isMicrovmBackend(), (qb) =>
+            qb.where((eb) =>
+                eb.exists(
+                    eb
+                        .selectFrom('microvmImage')
+                        .select('microvmImage.id')
+                        .whereRef('microvmImage.url', '=', 'orgCodeEnv.url')
+                        .where('microvmImage.imageVersion', 'is not', null),
+                ),
+            ),
+        )
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
 }

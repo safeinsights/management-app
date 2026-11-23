@@ -17,7 +17,9 @@ vi.mock('@/server/aws', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/aws')>()),
     triggerMicrovmImageBuild: vi.fn().mockResolvedValue(undefined),
 }))
-vi.mock('./config', () => ({ getMicrovmConfig: vi.fn(), isMicrovmBackend: () => true }))
+// isMicrovmBackend is false so that a study takes its org's newest code environment whatever the
+// state of its image, which is what these tests set up; the default rule has its own tests.
+vi.mock('./config', () => ({ getMicrovmConfig: vi.fn(), isMicrovmBackend: () => false }))
 vi.mock('@/lib/logger', () => ({
     __esModule: true,
     default: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
