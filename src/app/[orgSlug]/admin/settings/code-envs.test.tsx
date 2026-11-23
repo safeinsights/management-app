@@ -99,6 +99,40 @@ describe('CodeEnvs', async () => {
         })
     })
 
+    // OTTER-1106: the first starter file is renamed in the workspace, and the form never said which.
+    it('marks the first starter code file as the template that gets renamed', async () => {
+        renderWithProviders(<CodeEnvs />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
+        })
+
+        const fileInput = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement
+        await userEvent.upload(fileInput, [new File(['stub'], 'stub.R'), new File(['full'], 'reference.R')])
+
+        const templateNote = await screen.findByText('Template, becomes Main.R')
+        expect(templateNote.parentElement).toHaveTextContent('stub.R')
+        expect(screen.getAllByText('Template, becomes Main.R')).toHaveLength(1)
+    })
+
+    it('names the template among the existing starter code files', async () => {
+        await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'Two File Env',
+            language: 'PYTHON',
+            starterCodeFileNames: ['stub.py', 'reference.py'],
+        })
+
+        renderWithProviders(<CodeEnvs />)
+        await waitFor(() => expect(screen.getByText('Two File Env')).toBeInTheDocument())
+        fireEvent.click(screen.getByRole('button', { name: /edit two file env/i }))
+
+        expect(
+            await screen.findByText('Existing files: stub.py (template, becomes Main.py), reference.py'),
+        ).toBeInTheDocument()
+    })
+
     // OTTER-647: rejected on the field the admin typed into, not later in a summary that never
     // said which row was at fault.
     it('rejects a malformed env var name on the field itself', async () => {

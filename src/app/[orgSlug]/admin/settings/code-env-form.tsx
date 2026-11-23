@@ -29,7 +29,7 @@ import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { InputError } from '@/components/errors'
-import { languageLabels } from '@/lib/languages'
+import { languageLabels, templateFileNameFor } from '@/lib/languages'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -81,9 +81,61 @@ function StarterCodeError({ isVisible, error }: { isVisible: boolean; error?: st
     )
 }
 
+// OTTER-1106: the workspace copy renames the first starter file after the language, which the form
+// never said, so a Data Partner could not tell which upload would lose its name.
+const starterCodeHelpFor = (isEditMode: boolean, templateFileName: string) => {
+    const lead = isEditMode
+        ? 'Upload new files to replace all existing starter code (optional).'
+        : 'Upload starter code files to assist Researchers with their coding experience.'
+    return `${lead} The first file is the template: Researchers get it as ${templateFileName}. Other files keep their names.`
+}
+
+const existingFilesLabel = (fileNames: string[], templateFileName: string) =>
+    fileNames.map((name, index) => (index === 0 ? `${name} (template, becomes ${templateFileName})` : name)).join(', ')
+
+function TemplateNote({ isVisible, templateFileName }: { isVisible: boolean; templateFileName: string }) {
+    if (!isVisible) return null
+
+    return (
+        <Text size="xs" c="dimmed">
+            Template, becomes {templateFileName}
+        </Text>
+    )
+}
+
+function StarterCodeRow({
+    file,
+    isTemplate,
+    templateFileName,
+    onRemove,
+}: {
+    file: File
+    isTemplate: boolean
+    templateFileName: string
+    onRemove: (fileName: string) => void
+}) {
+    return (
+        <Group justify="space-between">
+            <Group gap="xs">
+                <Text size="sm">{file.name}</Text>
+                <TemplateNote isVisible={isTemplate} templateFileName={templateFileName} />
+            </Group>
+            <ActionIcon
+                color="red"
+                variant="subtle"
+                onClick={() => onRemove(file.name)}
+                aria-label={`Remove ${file.name}`}
+            >
+                <TrashIcon size={14} />
+            </ActionIcon>
+        </Group>
+    )
+}
+
 function StarterCodeSection({
     isEditMode,
     image,
+    templateFileName,
     starterCodes,
     setStarterCodes,
     removeStarterCode,
@@ -91,6 +143,7 @@ function StarterCodeSection({
 }: {
     isEditMode: boolean
     image?: CodeEnv
+    templateFileName: string
     starterCodes: File[]
     setStarterCodes: (files: File[]) => void
     removeStarterCode: (fileName: string) => void
@@ -114,9 +167,7 @@ function StarterCodeSection({
                 <RequiredIndicator isVisible={!isEditMode} />
             </Title>
             <Text size="xs" c="dimmed" mb="sm">
-                {isEditMode
-                    ? 'Upload new files to replace all existing starter code (optional)'
-                    : 'Upload starter code files to assist Researchers with their coding experience.'}
+                {starterCodeHelpFor(isEditMode, templateFileName)}
             </Text>
             <Dropzone
                 onDrop={handleDrop}
@@ -141,24 +192,20 @@ function StarterCodeSection({
             <StarterCodeError isVisible={!!error || isMissing} error={error} />
             {starterCodes.length > 0 && (
                 <Stack gap="xs" mt="sm">
-                    {starterCodes.map((file) => (
-                        <Group key={file.name} justify="space-between">
-                            <Text size="sm">{file.name}</Text>
-                            <ActionIcon
-                                color="red"
-                                variant="subtle"
-                                onClick={() => removeStarterCode(file.name)}
-                                aria-label={`Remove ${file.name}`}
-                            >
-                                <TrashIcon size={14} />
-                            </ActionIcon>
-                        </Group>
+                    {starterCodes.map((file, index) => (
+                        <StarterCodeRow
+                            key={file.name}
+                            file={file}
+                            isTemplate={index === 0}
+                            templateFileName={templateFileName}
+                            onRemove={removeStarterCode}
+                        />
                     ))}
                 </Stack>
             )}
             {isEditMode && image?.starterCodeFileNames?.length && (
                 <Text size="sm" c="dimmed" mt="sm">
-                    Existing files: {image.starterCodeFileNames.join(', ')}
+                    Existing files: {existingFilesLabel(image.starterCodeFileNames, templateFileName)}
                 </Text>
             )}
         </Box>
@@ -365,6 +412,7 @@ export function CodeEnvForm({ image, isLastUsable = false, onCompleteAction }: C
                 <StarterCodeSection
                     isEditMode={isEditMode}
                     image={image}
+                    templateFileName={templateFileNameFor(form.values.language)}
                     starterCodes={starterCodes}
                     setStarterCodes={setStarterCodes}
                     removeStarterCode={removeStarterCode}
