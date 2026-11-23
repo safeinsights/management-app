@@ -16,7 +16,7 @@ import { ProposalStepHeader, SUBMIT_CODE_STEP } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
 import { YourFilesSection } from './your-files-section'
 import { fontWeight } from '@/theme/tokens'
-import { CODE_MODAL_PLACEMENT, submitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
+import { submitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 
 interface StudyCodeProps {
     studyId: string
@@ -210,7 +210,6 @@ export const StudyCode = ({
                 onConfirm={handleConfirmSubmit}
                 isSubmitting={ide.isDirectSubmitting}
                 {...submitCodeModalCopy(dataPartnerName)}
-                {...CODE_MODAL_PLACEMENT}
             />
         </>
     )
