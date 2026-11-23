@@ -159,6 +159,20 @@ describe('evaluateFixtures', () => {
             'fixture test output unavailable (unparseable-output)',
         ])
     })
+
+    it('names the cause that Semgrep 1.183.0 prints on stderr when an annotation error stops the fixture test', () => {
+        const stderr = [
+            '  Scanning 1 file with 18 Code rules:',
+            '  Scanning 1 file with 18 r rules.',
+            "Found rule id mismatch - file=src/r-security.r 'ruleid' annotation with no YAML rule=set()",
+            "Failing due to rule id mismatch. There is a test denoted with 'ruleid: <rule name>' where the rule name does not exist or is not expected in the test file.",
+        ].join('\n')
+        expect(evaluateFixtures(null, 'unparseable-output', stderr).failures).toEqual([
+            'fixture test output unavailable (unparseable-output)',
+            "Found rule id mismatch - file=src/r-security.r 'ruleid' annotation with no YAML rule=set()",
+            "Failing due to rule id mismatch. There is a test denoted with 'ruleid: <rule name>' where the rule name does not exist or is not expected in the test file.",
+        ])
+    })
 })
 
 describe('evaluateCoverage', () => {

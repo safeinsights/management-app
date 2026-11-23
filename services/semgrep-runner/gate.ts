@@ -140,9 +140,21 @@ export function evaluateRules(validate: CommandResult, tests: SemgrepTestsResult
     return gateCheck('rules', failures)
 }
 
-export function evaluateFixtures(tests: SemgrepTestsResult | null, testsError: TestResponse['testsError']): GateCheck {
+// On an annotation error the fixture test exits without JSON and names the cause only on stderr.
+const FIXTURE_ERROR_LINE = /rule id mismatch|^Failing due to /
+
+// The stderr of the fixture test must already have the work dir stripped.
+export function evaluateFixtures(
+    tests: SemgrepTestsResult | null,
+    testsError: TestResponse['testsError'],
+    stderr = '',
+): GateCheck {
     if (!tests || testsError) {
-        return gateCheck('fixtures', [`fixture test output unavailable (${testsError ?? 'no output'})`])
+        const causes = stderr
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => FIXTURE_ERROR_LINE.test(line))
+        return gateCheck('fixtures', [`fixture test output unavailable (${testsError ?? 'no output'})`, ...causes])
     }
     const failures: string[] = []
     let checks = 0

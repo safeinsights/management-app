@@ -277,7 +277,7 @@ async function runGateMode(request: GateRequest, deps: RunnerDeps): Promise<Gate
             return gateResult(request.rulesetVersion, [
                 integrity,
                 evaluateRules({ ...validate, stdout: withoutWorkRoot(validate.stdout, work.root) }, tests),
-                evaluateFixtures(tests, testsError),
+                evaluateFixtures(tests, testsError, withoutWorkRoot(fixtureTest.stderr, work.root)),
                 coverageCheck({ report: scan.data, testFiles }),
             ])
         })
