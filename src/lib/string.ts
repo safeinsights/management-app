@@ -85,42 +85,6 @@ export function plural(count: number, noun: string, pluralNoun = `${noun}s`): st
     return `${count} ${count === 1 ? noun : pluralNoun}`
 }
 
-const CAPITALIZED_WORD = /^[A-Z][a-z]+$/
-const LOWERCASE_LONG_WORD = /^[a-z]{4,}$/
-
-// Judges "(Main.R):" by "Main.R", so brackets and punctuation never decide a word's case.
-function splitWord(token: string) {
-    const [, prefix = '', core = '', suffix = ''] = /^([(["']*)(.*?)([)\]"'.,:;!?]*)$/.exec(token) ?? []
-    return { prefix, core, suffix }
-}
-
-// A sentence-case heading keeps its long words lowercase. Small words ("of", "and") prove nothing,
-// since Title Case leaves them lowercase too.
-export function looksTitleCase(text: string): boolean {
-    const laterWords = text
-        .trim()
-        .split(/\s+/)
-        .slice(1)
-        .map((token) => splitWord(token).core)
-    return (
-        laterWords.some((word) => CAPITALIZED_WORD.test(word)) &&
-        !laterWords.some((word) => LOWERCASE_LONG_WORD.test(word))
-    )
-}
-
-// Lowercases plain capitalized words only: file names, acronyms, code and mixed case stay as written.
-export function toSentenceCase(text: string, { keepFirst = true }: { keepFirst?: boolean } = {}): string {
-    let keepNext = keepFirst
-    return text.replace(/\S+/g, (token) => {
-        if (keepNext) {
-            keepNext = false
-            return token
-        }
-        const { prefix, core, suffix } = splitWord(token)
-        return CAPITALIZED_WORD.test(core) ? `${prefix}${core.toLowerCase()}${suffix}` : token
-    })
-}
-
 export function stringifyJson(value: Json | null | undefined): string | null {
     if (value == null) return null
     return typeof value === 'string' ? value : JSON.stringify(value)

@@ -20,6 +20,7 @@ import {
     waitForPendingQueries,
     within,
 } from '@/tests/unit.helpers'
+import { rem } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
@@ -48,6 +49,19 @@ const scanResult = (semgrep: JobScanResult['semgrep'], details: string | null = 
 })
 
 const scanInProgress: JobScanResult = { semgrep: null, details: null, logFile: null }
+
+// happy-dom's ResizeObserver never calls back, so Mantine's overflow check would never run.
+class ImmediateResizeObserver {
+    callback: ResizeObserverCallback
+    constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+    }
+    observe() {
+        this.callback([], this as unknown as ResizeObserver)
+    }
+    unobserve() {}
+    disconnect() {}
+}
 
 async function insertStudyJobFile(
     studyJobId: string,
@@ -284,22 +298,52 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
-    it('scrolls the expanded summary inside the box, with the toggle outside the scroll area', async () => {
+    it('caps the expanded summary and scrolls it inside the box, with the toggle outside the scroll area', async () => {
         await renderSection(fixture)
         expect(screen.queryByTestId('ai-summary-scroll')).not.toBeInTheDocument()
 
         await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
 
         const scroll = screen.getByTestId('ai-summary-scroll')
+        expect(scroll.style.maxHeight).toBe(rem(616))
         expect(scroll).toContainElement(screen.getByTestId('ai-summary-body'))
         expect(scroll).not.toContainElement(screen.getByTestId('ai-summary-toggle'))
+    })
+
+    it.each([
+        ['makes the scrolling viewport a tab stop when the summary overflows', 1000, '0'],
+        ['adds no tab stop when the summary fits', 0, null],
+    ])('%s', async (_label, scrollHeight, tabIndex) => {
+        vi.stubGlobal('ResizeObserver', ImmediateResizeObserver)
+        const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
+        try {
+            await renderSection(fixture)
+            await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+            const viewport = within(screen.getByTestId('ai-summary-scroll')).getByRole('region', {
+                name: 'Full AI summary',
+            })
+            expect(viewport).toContainElement(screen.getByTestId('ai-summary-body'))
+            await waitFor(() => expect(viewport.getAttribute('tabindex')).toBe(tabIndex))
+        } finally {
+            scrollHeightSpy.mockRestore()
+            vi.unstubAllGlobals()
+        }
     })
 
     it('renders Title Case summary headings in sentence case', async () => {
         const headedFixture = await setupBaseFixture()
         await insertStudyReview(
             headedFixture.job.id,
-            '## File Overview\n\nThe Code Uses R.\n\n**Data Flow Issues**\n\nText.\n\n#### Main Data Processing (Main.R)\n\nMore.',
+            [
+                '## **File Overview**\n\nThe Code Uses R.',
+                '**Data Flow Issues**\n\nText.',
+                '#### Main Data Processing (Main.R)\n\nMore.',
+                '## 1. Data Loading And Cleaning\n\nSteps.',
+                '### Reading Data from the Student File\n\nRows.',
+                '### Reading Data From Google Sheets\n\nSheets.',
+                '### *Variables Used* In The Script\n\nNames.',
+            ].join('\n\n'),
         )
         await renderSection(headedFixture)
         await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
@@ -307,6 +351,10 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.getByRole('heading', { name: 'File overview' })).toBeInTheDocument()
         expect(screen.getByText('Data flow issues')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Main data processing (Main.R)' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: '1. Data loading and cleaning' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Reading data from the student file' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Reading data from Google sheets' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Variables used in the script' })).toBeInTheDocument()
         expect(screen.getByText('The Code Uses R.')).toBeInTheDocument()
     })
 
@@ -314,13 +362,14 @@ describe('SubmittedCodeSection — AI summary', () => {
         const headedFixture = await setupBaseFixture()
         await insertStudyReview(
             headedFixture.job.id,
-            '**This summary does not cover 2 submitted files:**\n\n- `a.R`: too big\n\n## Reading data with Python\n\nText.',
+            '**This summary does not cover 2 submitted files:**\n\n- `a.R`: too big\n\n## Reading data with Python\n\nText.\n\n## Run in Python\n\nMore.',
         )
         await renderSection(headedFixture)
         await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
 
         expect(screen.getByText('This summary does not cover 2 submitted files:')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Reading data with Python' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Run in Python' })).toBeInTheDocument()
     })
 
     it('shows the in-progress spinner while no review row exists yet (still generating)', async () => {

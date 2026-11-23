@@ -10,7 +10,6 @@ import Markdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { isActionError } from '@/lib/errors'
-import { looksTitleCase, toSentenceCase } from '@/lib/string'
 import { STUDY_REVIEW_STALE_AFTER_MS, studyReviewState } from '@/lib/study-review'
 import { getJobAnalysisAction, regenerateStudyReviewAction } from '@/server/actions/study-job.actions'
 import type { JobAnalysis, StudyReviewWithMeta } from '@/server/db/queries'
@@ -19,15 +18,74 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 // Figma 1995:19067: the expanded summary stops growing at this height and scrolls inside.
 const AI_SUMMARY_EXPANDED_MAX_HEIGHT = 616
 
-// Only string children are recased; inline code and links in a heading stay as written. The gate
-// skips headings the model already wrote in sentence case, so their proper nouns survive.
+// Names that stay capitalized in a sentence-case heading, so they neither prove Title Case nor get lowercased.
+const PROPER_NAMES = new Set(['Python', 'Excel', 'Google', 'Postgres', 'Jupyter', 'Spark', 'Stata', 'Julia'])
+// Title Case styles keep these lowercase too, so they say nothing about how a heading was written.
+const TITLE_CASE_LOWERCASE_WORDS = new Set([
+    'about',
+    'after',
+    'from',
+    'into',
+    'over',
+    'than',
+    'that',
+    'through',
+    'with',
+])
+// Inline code and links keep their text as written.
+const KEEP_AS_WRITTEN = new Set<unknown>(['code', 'a'])
+
+const hasLetter = (word: string) => /[A-Za-z]/.test(word)
+const isRecasable = (word: string) => /^[A-Z][a-z]+$/.test(word) && !PROPER_NAMES.has(word)
+const isSentenceCaseWord = (word: string) => /^[a-z]{4,}$/.test(word) && !TITLE_CASE_LOWERCASE_WORDS.has(word)
+
+// Judges "(Main.R):" by "Main.R", so brackets and punctuation never decide a word's case.
+function splitWord(token: string) {
+    const [, prefix = '', core = '', suffix = ''] = /^([(["']*)(.*?)([)\]"'.,:;!?]*)$/.exec(token) ?? []
+    return { prefix, core, suffix }
+}
+
+function plainText(children: ReactNode): string {
+    return Children.toArray(children)
+        .map((node) => {
+            if (typeof node === 'string') return node
+            if (!isValidElement<{ children?: ReactNode }>(node) || KEEP_AS_WRITTEN.has(node.type)) return ''
+            return plainText(node.props.children)
+        })
+        .join('')
+}
+
+// A sentence-case heading keeps its long words lowercase. The first word ("1." skipped) proves nothing.
+function looksTitleCase(text: string): boolean {
+    const laterWords = text
+        .split(/\s+/)
+        .map((token) => splitWord(token).core)
+        .filter(hasLetter)
+        .slice(1)
+    return laterWords.some(isRecasable) && !laterWords.some(isSentenceCaseWord)
+}
+
+// Skips headings the model already wrote in sentence case, so their proper nouns survive.
 function sentenceCaseChildren(children: ReactNode): ReactNode {
-    const parts = Children.toArray(children)
-    const text = parts.filter((part) => typeof part === 'string').join('')
-    if (!looksTitleCase(text)) return children
-    return parts.map((part, index) =>
-        typeof part === 'string' ? toSentenceCase(part, { keepFirst: index === 0 }) : part,
-    )
+    if (!looksTitleCase(plainText(children))) return children
+    let isFirstWord = true
+    const recaseToken = (token: string) => {
+        const { prefix, core, suffix } = splitWord(token)
+        if (!hasLetter(core)) return token
+        const keep = isFirstWord || !isRecasable(core)
+        isFirstWord = false
+        return keep ? token : `${prefix}${core.toLowerCase()}${suffix}`
+    }
+    const recase = (node: ReactNode): ReactNode => {
+        if (typeof node === 'string') return node.replace(/\S+/g, recaseToken)
+        if (!isValidElement<{ children?: ReactNode }>(node)) return node
+        if (KEEP_AS_WRITTEN.has(node.type)) {
+            isFirstWord = false
+            return node
+        }
+        return cloneElement(node, undefined, Children.map(node.props.children, recase))
+    }
+    return Children.map(children, recase)
 }
 
 // A paragraph that is nothing but bold text is a heading the model wrote as a bold lead-in.

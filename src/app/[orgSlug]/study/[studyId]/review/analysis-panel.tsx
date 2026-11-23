@@ -71,6 +71,8 @@ export function TextButton({ onClick, testId, children, leftSection, rightSectio
             fw={fontWeight.bold}
             w="fit-content"
             data-testid={testId}
+            c={rest.disabled ? semanticColor('text.disabled') : undefined}
+            underline={rest.disabled ? 'never' : undefined}
             {...rest}
         >
             <Group component="span" gap="xxs" wrap="nowrap">
@@ -104,6 +106,7 @@ function ExpandToggle({ isExpanded, onToggle, showLabel, hideLabel, testId }: Ex
 }
 
 // A scroll area that never scrolls would still be a tab stop, so it takes focus only while it overflows.
+// The tab stop goes on the viewport, the element that scrolls; on the Autosize root the keys do nothing.
 function useOverflowTabStop() {
     const [isOverflowing, setIsOverflowing] = useState(false)
     return { tabIndex: isOverflowing ? 0 : undefined, onOverflowChange: setIsOverflowing }
@@ -136,9 +139,9 @@ function ExpandableBody({ testId, isExpanded, expandedMaxHeight, scrollLabel, ch
             type="auto"
             offsetScrollbars="present"
             scrollbarSize={8}
-            aria-label={scrollLabel}
             data-testid={`${testId}-scroll`}
-            {...overflowTabStop}
+            onOverflowChange={overflowTabStop.onOverflowChange}
+            viewportProps={{ tabIndex: overflowTabStop.tabIndex, role: 'region', 'aria-label': scrollLabel }}
         >
             {body}
         </ScrollArea.Autosize>
