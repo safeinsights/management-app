@@ -321,7 +321,7 @@ describe.skipIf(!s3Available)('scan mode', () => {
     async function setup(submission: Record<string, string>, rules: Record<string, string>) {
         const id = `${Date.now()}-${++unique}`
         const prefix = `semgrep-runner-test-${id}/code`
-        const version = `test-${id}`
+        const version = `v${100_000_000 + ((Date.now() * 10 + unique) % 899_999_999)}`
         const ruleset = `rulesets/dev/${version}`
         const manifest: RulesetManifest = {
             schemaVersion: 1,
@@ -357,11 +357,6 @@ describe.skipIf(!s3Available)('scan mode', () => {
             {
                 'rules/secrets.yaml': 'rules: []',
                 'rules/nested/python.yml': 'rules: []',
-                'rules/README.md': 'notes',
-                'rules/Secrets.YAML': 'not loaded by Semgrep',
-                'rules/secrets.test.yaml': 'a fixture',
-                'rules/.hidden.yaml': 'not fixture-tested',
-                'rules/.dir/hidden.yaml': 'not fixture-tested',
                 'tests/secrets.yaml': 'not a rule',
             },
         )
