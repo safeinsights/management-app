@@ -269,14 +269,12 @@ function CollapsibleRest({
 }) {
     if (!isVisible) return null
     // The toggle is a sibling of the Collapse so a closed panel does not leave flex-gap above it.
-    // display-none: in activity mode Collapse changes its element tree once reduced motion resolves
-    // after hydration, which remounts the code viewer and drops the file the reviewer selected.
     return (
         <>
             <Divider />
             <Stack gap={0}>
                 {expandToggle}
-                <Collapse expanded={expanded} keepMounted keepMountedMode="display-none">
+                <Collapse expanded={expanded}>
                     <Stack gap="xl">
                         <DividedBlocks blocks={blocks} />
                     </Stack>

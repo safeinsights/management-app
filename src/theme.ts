@@ -5,6 +5,7 @@ import {
     type ButtonProps,
     type ButtonVariant,
     Checkbox,
+    Collapse,
     createTheme,
     CSSVariablesResolver,
     defaultVariantColorsResolver,
@@ -342,6 +343,9 @@ export const theme = createTheme({
         Divider: Divider.extend({
             defaultProps: { color: semanticColor('border.default') },
         }),
+        // In activity mode Collapse changes its element tree once reduced motion resolves after
+        // hydration, which remounts its children and drops their state, such as a selected code file.
+        Collapse: Collapse.extend({ defaultProps: { keepMountedMode: 'display-none' } }),
         // Legal documents wrap long URLs and words instead of widening their box. Unlike `break-word`,
         // `anywhere` also shrinks the min-content width the autosized scroll area sizes to.
         Typography: Typography.extend({
