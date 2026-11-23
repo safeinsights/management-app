@@ -278,6 +278,7 @@ vi.mock('@hocuspocus/provider', async () => {
         document: InstanceType<typeof Y.Doc>
         awareness = new FakeAwareness()
         isSynced = false
+        isAuthenticated = false
         unsyncedChanges = 0
         configuration: { name?: string } = {}
         _observers = new Map<string, Set<(...args: unknown[]) => void>>()
@@ -287,6 +288,8 @@ vi.mock('@hocuspocus/provider', async () => {
         disconnect = vi.fn()
         connect = vi.fn()
         send = vi.fn()
+        sendToken = vi.fn()
+        startSync = vi.fn()
         sendStateless = vi.fn()
         on(event: string, fn: (...args: unknown[]) => void) {
             if (!this._observers.has(event)) this._observers.set(event, new Set())
