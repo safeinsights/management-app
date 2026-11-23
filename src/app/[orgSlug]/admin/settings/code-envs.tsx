@@ -230,6 +230,8 @@ const CodeEnvRow: React.FC<{
                 isTesting={image.isTesting}
                 isDefault={isDefault}
                 latestScanStatus={image.latestScanStatus}
+                imageStatus={image.imageStatus}
+                imageError={image.imageError}
                 detailOpened={detailOpened}
                 onToggleDetail={toggleDetail}
                 onLanguageBadgeClick={starterCodeFileNames.length ? () => handleViewCode() : undefined}
@@ -307,8 +309,14 @@ const CodeEnvRow: React.FC<{
 
 const ACTIVE_SCAN_STATUSES: ScanStatus[] = ['SCAN-PENDING', 'SCAN-RUNNING']
 
+const ACTIVE_IMAGE_STATUSES = ['IMAGE-PENDING', 'IMAGE-RUNNING']
+
 function needsRefresh(codeEnvs: CodeEnv[]): boolean {
-    return codeEnvs.some((env) => ACTIVE_SCAN_STATUSES.includes(env.latestScanStatus as ScanStatus))
+    return codeEnvs.some(
+        (env) =>
+            ACTIVE_SCAN_STATUSES.includes(env.latestScanStatus as ScanStatus) ||
+            ACTIVE_IMAGE_STATUSES.includes(env.imageStatus ?? ''),
+    )
 }
 
 const SCAN_PASSED_STATUS: ScanStatus = 'SCAN-COMPLETE'

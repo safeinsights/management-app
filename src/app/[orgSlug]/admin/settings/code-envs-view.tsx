@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { ActionIcon, Badge, type BadgeProps, Group, Text } from '@mantine/core'
 import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { RefresherSlot } from '@/components/refresher'
-import type { ScanStatus } from '@/database/types'
+import type { MicrovmImageStatus, ScanStatus } from '@/database/types'
 import { fontWeight } from '@/theme/tokens'
 import { SettingsCard, SettingsCardRow } from './settings-card'
 
@@ -62,12 +62,51 @@ export const ScanStatusBadge: React.FC<{ name: string; status: string | null; on
     )
 }
 
+// The research IDE image built from the code environment's url. Environments with one url share it.
+const IMAGE_BADGE_CONFIG: Record<MicrovmImageStatus, { color: string; label: string }> = {
+    'IMAGE-PENDING': { color: 'grey', label: 'IDE Image Pending' },
+    'IMAGE-RUNNING': { color: 'blue', label: 'Building IDE Image...' },
+    'IMAGE-READY': { color: 'green', label: 'IDE Image Ready' },
+    'IMAGE-FAILED': { color: 'red', label: 'IDE Image Failed' },
+}
+
+// The build job sends a code and nothing else, so every sentence an admin reads is written here.
+export function imageErrorText(error: string | null): string {
+    const [code, detail] = (error ?? '').split(': ')
+    if (code === 'BASE_IMAGE_UNAVAILABLE') {
+        return 'The image could not be read from the registry. Make sure that the URL is correct and that the image exists.'
+    }
+    if (code === 'UNSUPPORTED_PLATFORM') {
+        return `The image is for ${detail}. The research IDE needs a linux/amd64 image.`
+    }
+    return 'The IDE image could not be built. Contact SafeInsights support.'
+}
+
+export const ImageStatusBadge: React.FC<{ status: string | null; error: string | null }> = ({ status, error }) => {
+    const config = status ? IMAGE_BADGE_CONFIG[status as MicrovmImageStatus] : undefined
+    if (!config) return null
+    const failed = status === 'IMAGE-FAILED'
+    return (
+        <Badge
+            variant="light"
+            size="sm"
+            color={config.color}
+            leftSection={failed ? <WarningCircleIcon size={14} weight="fill" /> : undefined}
+            title={failed ? imageErrorText(error) : undefined}
+        >
+            {config.label}
+        </Badge>
+    )
+}
+
 export type CodeEnvRowViewProps = {
     name: string
     language: string
     isTesting: boolean
     isDefault: boolean
     latestScanStatus: string | null
+    imageStatus: string | null
+    imageError: string | null
     detailOpened: boolean
     onToggleDetail: () => void
     onLanguageBadgeClick?: () => void
@@ -82,6 +121,8 @@ export function CodeEnvRowView({
     isTesting,
     isDefault,
     latestScanStatus,
+    imageStatus,
+    imageError,
     detailOpened,
     onToggleDetail,
     onLanguageBadgeClick,
@@ -123,6 +164,7 @@ export function CodeEnvRowView({
                         </Badge>
                     )}
                     <ScanStatusBadge name={name} status={latestScanStatus} onClick={onScanBadgeClick} />
+                    <ImageStatusBadge status={imageStatus} error={imageError} />
                 </Group>
                 <Group gap="xxs" wrap="nowrap">
                     {actions}

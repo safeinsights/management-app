@@ -1521,4 +1521,26 @@ describe('research IDE image', () => {
 
         expect(requestImageBuild).not.toHaveBeenCalled()
     })
+
+    it('lists each code environment with the status of the image for its url', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const failed = await insertTestCodeEnv({ orgId: org.id, language: 'R', url: testImageRef('example.com/f') })
+        const none = await insertTestCodeEnv({ orgId: org.id, language: 'R', url: testImageRef('example.com/n') })
+        await db
+            .insertInto('microvmImage')
+            .values({ url: failed.url, status: 'IMAGE-FAILED', error: 'BASE_IMAGE_UNAVAILABLE' })
+            .onConflict((oc) =>
+                oc.column('url').doUpdateSet({ status: 'IMAGE-FAILED', error: 'BASE_IMAGE_UNAVAILABLE' }),
+            )
+            .execute()
+        await db.deleteFrom('microvmImage').where('url', '=', none.url).execute()
+
+        const rows = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: org.slug }))
+
+        expect(rows.find((r) => r.id === failed.id)).toMatchObject({
+            imageStatus: 'IMAGE-FAILED',
+            imageError: 'BASE_IMAGE_UNAVAILABLE',
+        })
+        expect(rows.find((r) => r.id === none.id)).toMatchObject({ imageStatus: null, imageError: null })
+    })
 })

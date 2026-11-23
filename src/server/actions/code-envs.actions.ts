@@ -446,6 +446,16 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
                     .orderBy('codeScan.createdAt', 'desc')
                     .limit(1)
                     .as('latestScanResults'),
+                eb
+                    .selectFrom('microvmImage')
+                    .select('microvmImage.status')
+                    .whereRef('microvmImage.url', '=', 'orgCodeEnv.url')
+                    .as('imageStatus'),
+                eb
+                    .selectFrom('microvmImage')
+                    .select('microvmImage.error')
+                    .whereRef('microvmImage.url', '=', 'orgCodeEnv.url')
+                    .as('imageError'),
                 jsonArrayFrom(
                     eb
                         .selectFrom('orgDataSourceCodeEnv')

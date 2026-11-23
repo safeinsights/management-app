@@ -64,6 +64,8 @@ const CodeEnvsCard = (
                 isTesting={false}
                 isDefault
                 latestScanStatus="SCAN-COMPLETE"
+                imageStatus="IMAGE-READY"
+                imageError={null}
                 detailOpened={false}
                 onToggleDetail={noop}
                 onLanguageBadgeClick={noop}
@@ -77,6 +79,8 @@ const CodeEnvsCard = (
                 isTesting
                 isDefault={false}
                 latestScanStatus="SCAN-RUNNING"
+                imageStatus="IMAGE-RUNNING"
+                imageError={null}
                 detailOpened={false}
                 onToggleDetail={noop}
                 onLanguageBadgeClick={noop}
