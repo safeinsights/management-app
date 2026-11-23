@@ -11,8 +11,6 @@ export type MicrovmConfig = {
     // A code environment's image is named this plus the hash of its url.
     imageNamePrefix: string
     baseRepositoryName: string
-    // Removed in Task 6.
-    imageArn?: string
     executionRoleArn: string
     egressConnectorArn: string
     sampleDataSecrets: string[]

@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto'
 import type { DBExecutor } from '@/database'
 import type { MicrovmImageStatus } from '@/database/types'
 import logger from '@/lib/logger'
+import { ActionFailure } from '@/server/actions/action'
 import { triggerMicrovmImageBuild } from '@/server/aws'
+import { fetchCodeEnvForStudyId } from '@/server/db/queries'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { getMicrovmConfig, type MicrovmConfig } from './config'
 
@@ -101,4 +103,49 @@ export async function requestImageBuild(db: DBExecutor, url: string): Promise<vo
     const config = await getMicrovmConfig()
     if (!config) return
     await startImageBuild(db, url, config, { retryFailed: true })
+}
+
+// Every side of a fusion study runs in the study's one VM, so it boots from an image SafeInsights
+// builds, with R, Python and the fusion SDK, kept as a code environment of the SafeInsights org.
+export const FUSION_CODE_ENV = { orgSlug: 'safe-insights', identifier: 'fusion' }
+
+export async function fetchIdeImageUrlForStudyId(
+    studyId: string,
+    db: DBExecutor,
+    opts: { fusion?: boolean } = {},
+): Promise<string> {
+    if (!opts.fusion) return (await fetchCodeEnvForStudyId(studyId, db)).url
+    const fusion = await db
+        .selectFrom('orgCodeEnv')
+        .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
+        .select('orgCodeEnv.url')
+        .where('org.slug', '=', FUSION_CODE_ENV.orgSlug)
+        .where('orgCodeEnv.identifier', '=', FUSION_CODE_ENV.identifier)
+        .executeTakeFirst()
+    if (!fusion) throw new Error('the SafeInsights fusion code environment does not exist')
+    return fusion.url
+}
+
+export function imageNotReadyMessage(status: MicrovmImageStatus | undefined): string {
+    if (status === 'IMAGE-FAILED') {
+        return 'The environment is not ready. The build of its IDE image failed. Contact your organization administrator.'
+    }
+    return 'The environment is not ready. Its IDE image is being built. Try again in approximately 15 minutes.'
+}
+
+/** The image a study's IDE runs. Throws an ActionFailure, which the launch page shows, if none is usable. */
+export async function requireIdeImage(
+    studyId: string,
+    db: DBExecutor,
+    opts: { fusion?: boolean } = {},
+): Promise<{ imageArn: string; imageVersion: string }> {
+    const url = await fetchIdeImageUrlForStudyId(studyId, db, opts)
+    const image = await db
+        .selectFrom('microvmImage')
+        .select(['status', 'imageArn', 'imageVersion'])
+        .where('url', '=', url)
+        .executeTakeFirst()
+    // The version, not the status: a rebuild in progress or failed leaves the last good version usable.
+    if (!image?.imageArn || !image.imageVersion) throw new ActionFailure(imageNotReadyMessage(image?.status))
+    return { imageArn: image.imageArn, imageVersion: image.imageVersion }
 }

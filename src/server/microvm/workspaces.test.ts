@@ -25,7 +25,10 @@ const microvms = mockClient(LambdaMicrovmsClient)
 const secrets = mockClient(SecretsManagerClient)
 
 const config = {
-    imageArn: 'arn:aws:lambda:us-east-1:123456789012:microvm-image:crate-ide-sandbox',
+    layerHash: 'layer-1',
+    layerSourceUri: 's3://assets/layer.zip',
+    imageNamePrefix: 'ide-test-',
+    baseRepositoryName: 'si/microvm-base-test',
     executionRoleArn: 'arn:aws:iam::123456789012:role/exec',
     egressConnectorArn: 'arn:aws:lambda:us-east-1:123456789012:network-connector:abc',
     sampleDataSecrets: [],

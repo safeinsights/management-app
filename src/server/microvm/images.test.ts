@@ -3,7 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
 import { triggerMicrovmImageBuild } from '@/server/aws'
 import { getMicrovmConfig, type MicrovmConfig } from './config'
-import { claimImageBuild, requestImageBuild, urlHash } from './images'
+import { insertTestCodeEnv, insertTestOrg, insertTestStudyOnly } from '@/tests/unit.helpers'
+import {
+    claimImageBuild,
+    fetchIdeImageUrlForStudyId,
+    imageNotReadyMessage,
+    requestImageBuild,
+    requireIdeImage,
+    urlHash,
+} from './images'
 
 vi.mock('@/server/aws', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/aws')>()),
@@ -128,5 +136,73 @@ describe('requestImageBuild', () => {
             error: 'BUILD_NOT_STARTED',
             attemptedLayerHash: null,
         })
+    })
+})
+
+describe('requireIdeImage', () => {
+    // insertTestStudyOnly makes an R study with no frozen code environment, so the study takes the
+    // org's newest non-testing R environment.
+    const studyWithUrl = async () => {
+        const { org, study } = await insertTestStudyOnly()
+        const url = newUrl()
+        await insertTestCodeEnv({ orgId: org.id, language: 'R', url })
+        return { study, url }
+    }
+
+    it('gives the image and version built for the study url', async () => {
+        const { study, url } = await studyWithUrl()
+        await db
+            .insertInto('microvmImage')
+            .values({ url, status: 'IMAGE-READY', imageArn: 'arn:image', imageVersion: '2.0' })
+            .execute()
+        expect(await requireIdeImage(study.id, db)).toEqual({ imageArn: 'arn:image', imageVersion: '2.0' })
+    })
+
+    it('refuses to launch while the first build is in progress', async () => {
+        const { study, url } = await studyWithUrl()
+        await db.insertInto('microvmImage').values({ url, status: 'IMAGE-RUNNING' }).execute()
+        await expect(requireIdeImage(study.id, db)).rejects.toThrow(imageNotReadyMessage('IMAGE-RUNNING'))
+    })
+
+    it('refuses to launch when no build was ever started', async () => {
+        const { study } = await studyWithUrl()
+        await expect(requireIdeImage(study.id, db)).rejects.toThrow(imageNotReadyMessage(undefined))
+    })
+
+    it('tells the researcher who can help when the only build failed', async () => {
+        const { study, url } = await studyWithUrl()
+        await db.insertInto('microvmImage').values({ url, status: 'IMAGE-FAILED', error: 'BUILD_ERROR' }).execute()
+        await expect(requireIdeImage(study.id, db)).rejects.toThrow(/administrator/)
+    })
+
+    // A rebuild for a new IDE layer that fails, or that is still in progress, must not stop work.
+    it('launches on the last good version when a rebuild failed or is in progress', async () => {
+        const { study, url } = await studyWithUrl()
+        await db
+            .insertInto('microvmImage')
+            .values({ url, status: 'IMAGE-FAILED', error: 'BUILD_ERROR', imageArn: 'arn:image', imageVersion: '3.0' })
+            .execute()
+        expect(await requireIdeImage(study.id, db)).toEqual({ imageArn: 'arn:image', imageVersion: '3.0' })
+
+        await db.updateTable('microvmImage').set({ status: 'IMAGE-PENDING' }).where('url', '=', url).execute()
+        expect(await requireIdeImage(study.id, db)).toEqual({ imageArn: 'arn:image', imageVersion: '3.0' })
+    })
+})
+
+describe('fetchIdeImageUrlForStudyId', () => {
+    // Every side of a fusion study runs in one VM, so it cannot boot from one partner's image.
+    it('gives a fusion study the SafeInsights fusion code environment', async () => {
+        const { study } = await insertTestStudyOnly()
+        const si = await insertTestOrg({ slug: 'safe-insights' })
+        const existing = await db
+            .selectFrom('orgCodeEnv')
+            .select('url')
+            .where('orgId', '=', si.id)
+            .where('identifier', '=', 'fusion')
+            .executeTakeFirst()
+        const url =
+            existing?.url ?? (await insertTestCodeEnv({ orgId: si.id, identifier: 'fusion', url: newUrl() })).url
+
+        expect(await fetchIdeImageUrlForStudyId(study.id, db, { fusion: true })).toBe(url)
     })
 })

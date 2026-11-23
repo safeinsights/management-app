@@ -20,6 +20,7 @@ import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { listStudyFiles, studyFileStore } from '@/server/workspace-files'
 import logger from '@/lib/logger'
 import { getMicrovmConfig, type MicrovmConfig } from './config'
+import { requireIdeImage } from './images'
 
 // The platform maximum. A MicroVM idle this long is suspended, and one suspended this long is
 // terminated; its files are already in S3 by then.
@@ -66,7 +67,7 @@ async function microvmState(microvmId: string): Promise<{ state: MicrovmState; r
         return { state: vm.state!, reason: vm.stateReason }
     } catch (e) {
         if (e instanceof ResourceNotFoundException) return null
-        // Access is granted per image, so a MicroVM from an image since replaced is unreadable. Its
+        // Access is granted per image, so a MicroVM from an image since deleted is unreadable. Its
         // study files are already in S3, and a launch replaces it.
         if (e instanceof AccessDeniedException) {
             logger.warn(`[microvm] ${microvmId} is not readable, treating it as gone:`, e)
@@ -125,6 +126,8 @@ async function launchSecrets(config: MicrovmConfig) {
 
 async function launchMicrovm(config: MicrovmConfig, studyId: string): Promise<string> {
     const logCtx = `[microvm-launch study=${studyId}]`
+    // First, so that a study whose image is not built leaves no launch config or files behind.
+    const image = await requireIdeImage(studyId, currentDb())
     await initializeWorkspaceCodeFiles(studyId)
     const study = await studyPayload(studyId)
 
@@ -149,7 +152,8 @@ async function launchMicrovm(config: MicrovmConfig, studyId: string): Promise<st
 
     const run = await microvms().send(
         new RunMicrovmCommand({
-            imageIdentifier: config.imageArn,
+            imageIdentifier: image.imageArn,
+            imageVersion: image.imageVersion,
             executionRoleArn: config.executionRoleArn,
             ingressNetworkConnectors: [managedConnector('HTTP_INGRESS')],
             // Through the VPC, so the IDE reaches the sample-data databases as Coder workspaces did.
