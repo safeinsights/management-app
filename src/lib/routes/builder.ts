@@ -1,8 +1,8 @@
 import type { Route } from 'next'
-import type { z, ZodSchema } from 'zod'
+import type { z } from 'zod'
 // based on https://www.flightcontrol.dev/blog/fix-nextjs-routing-to-have-full-type-safety
 
-export type RouteBuilder<T extends ZodSchema> = {
+export type RouteBuilder<T extends z.ZodType> = {
     (params: z.infer<T>): Route
 
     schema: T
@@ -19,7 +19,7 @@ export function withQuery(base: string, params: Record<string, string | undefine
     return qs ? `${base}?${qs}` : base
 }
 
-export function makeRoute<T extends ZodSchema>(
+export function makeRoute<T extends z.ZodType>(
     pathFn: (params: z.infer<T>) => string,
     paramsSchema: T,
 ): RouteBuilder<T> {

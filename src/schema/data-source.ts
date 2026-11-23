@@ -35,19 +35,19 @@ export const dataSourceFormSchema = z
 
         if (hasUrl && !hasDescription) {
             ctx.addIssue({
-                code: z.ZodIssueCode.custom,
+                code: 'custom',
                 message: 'URL description is required',
                 path: ['newUrlDescription'],
             })
         }
         if (hasDescription && !hasUrl) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid URL', path: ['newUrl'] })
+            ctx.addIssue({ code: 'custom', message: 'Enter a valid URL', path: ['newUrl'] })
         }
         if (hasUrl && !z.url().safeParse(data.newUrl.trim()).success) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid URL', path: ['newUrl'] })
+            ctx.addIssue({ code: 'custom', message: 'Enter a valid URL', path: ['newUrl'] })
         } else if (hasUrl && !isHttpUrl(data.newUrl.trim())) {
             ctx.addIssue({
-                code: z.ZodIssueCode.custom,
+                code: 'custom',
                 message: 'URL must start with http:// or https://',
                 path: ['newUrl'],
             })

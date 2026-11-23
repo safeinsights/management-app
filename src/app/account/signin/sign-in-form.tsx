@@ -13,7 +13,8 @@ import { SignInFormView } from './sign-in-form-view'
 import { useCompleteSignIn } from './use-complete-sign-in'
 
 const signInSchema = z.object({
-    email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
+    // A check, not a bare `z.email()`, which would test the format before `min(1)` (OTTER-647).
+    email: z.string().min(1, 'Email is required').max(250, 'Email too long').check(z.email('Invalid email')),
     password: z.string().min(1, 'Required'),
 })
 

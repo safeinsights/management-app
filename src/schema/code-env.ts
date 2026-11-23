@@ -125,7 +125,7 @@ const rejectDuplicateEnvVarName = (
         const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
         if (isDuplicate) {
             ctx.addIssue({
-                code: z.ZodIssueCode.custom,
+                code: 'custom',
                 message: 'Variable name already exists',
                 path: ['newEnvKey'],
             })
@@ -160,7 +160,7 @@ const requireCommandLineForEachExtension = (
 
     if (missingExts.length > 0) {
         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             message: `Missing command line for extension(s): .${missingExts.join(', .')}`,
             path: ['starterCodes'],
         })

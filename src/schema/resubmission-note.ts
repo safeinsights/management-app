@@ -34,11 +34,11 @@ const noteSchema = z.object({
     // superRefine rather than chained refines so a blank note reports only that it is blank.
     resubmissionNote: z.string().superRefine((val, ctx) => {
         if (resubmissionNoteIsBlank(val)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: REQUIRED_NOTE_ERROR })
+            ctx.addIssue({ code: 'custom', message: REQUIRED_NOTE_ERROR })
             return
         }
         if (resubmissionNoteIsOverLimit(val)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: NOTE_MAX_ERROR })
+            ctx.addIssue({ code: 'custom', message: NOTE_MAX_ERROR })
         }
     }),
 })
