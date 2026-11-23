@@ -19,9 +19,8 @@
 # 'true' (a repository variable: an environment variable does not resolve in a job `if`), so
 # Jenkins and Actions never deploy the same PR concurrently. Cutover = set the variable to true and
 # disable PR discovery on the Jenkins job. Every close tears the preview down, merged or not
-# (SHRMP-358 item 7); that also covers squash merges, which the Jenkins main build's
-# `Merge pull request #N` parse misses. While that build still runs its own merged-PR teardown the
-# two can overlap, and the nightly reaper covers whichever loses. Merge-to-main and release deploys
+# (SHRMP-358 item 7), squash merges included. The Jenkins main build no longer tears down
+# previews. Merge-to-main and release deploys
 # move to CodePipeline in si-devops (SHRMP-358 item 8), not here. GitHub skips pull_request events
 # for conflicting PRs; the reaper covers those too. The reaper is not gated: it only deletes
 # previews whose PR is closed or no longer exists, and keeps them on any ambiguous GitHub answer.
