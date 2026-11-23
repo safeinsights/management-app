@@ -10,10 +10,11 @@ import {
     RULESET_TESTS_DIR,
     rulesetVersionPrefix,
     type RulesetEnv,
+    type RulesetManifest,
     type RulesetPerson,
 } from '../../../services/semgrep-runner/protocol'
 import { listKeys } from './s3'
-import { createVersion, listVersionNumbers, readManifest, readPublished } from './store'
+import { createVersion, listVersionNumbers, readManifest, readPublished, readVersionFiles } from './store'
 
 export const SEED_AUTHOR: RulesetPerson = { userId: null, name: 'OTTER-910 seed' }
 const SEED_CHANGE_NOTE = 'Rules and fixtures from iac, with the research code corpus (OTTER-910)'
@@ -84,27 +85,35 @@ export function readSeedFiles({ rulesDir, testsDir, corpusDirs }: SeedSource): R
     ]
 }
 
-async function isComplete(env: RulesetEnv, version: string): Promise<boolean> {
-    const manifest = await readManifest(env, version)
-    if (!manifest) return false
-    const prefix = rulesetVersionPrefix(env, version)
+async function isComplete(env: RulesetEnv, manifest: RulesetManifest): Promise<boolean> {
+    const prefix = rulesetVersionPrefix(env, manifest.version)
     const { keys } = await listKeys(prefix)
     return manifest.files.every((file) => keys.includes(`${prefix}${file}`))
+}
+
+function sameFiles(stored: RulesetDraftFile[], seed: RulesetDraftFile[]): boolean {
+    const wanted = new Map(seed.map((file) => [file.path, file.content]))
+    return (
+        seed.length === stored.length &&
+        wanted.size === stored.length &&
+        stored.every((file) => wanted.get(file.path) === file.content)
+    )
 }
 
 export type SeedPlan =
     | { env: RulesetEnv; action: 'create' }
     | { env: RulesetEnv; action: 'skip'; reason: 'published' | 'uploaded'; version: string }
 
-// An upload that stopped half way leaves a version no gate passes and no role can delete, so only a
-// complete latest version counts as seeded; the next run then writes the following number.
-export async function planSeed(env: RulesetEnv): Promise<SeedPlan> {
+// No role can delete a version, so a half uploaded one, or one the gate refused and the seed has since
+// fixed, is replaced by the following number: only a complete latest version with these files is seeded.
+export async function planSeed(env: RulesetEnv, files: RulesetDraftFile[]): Promise<SeedPlan> {
     const published = await readPublished(env)
     if (published) return { env, action: 'skip', reason: 'published', version: published.pointer.version }
 
     const latest = (await listVersionNumbers(env)).at(-1)
-    if (latest && (await isComplete(env, `v${latest}`))) {
-        return { env, action: 'skip', reason: 'uploaded', version: `v${latest}` }
+    const manifest = latest ? await readManifest(env, `v${latest}`) : null
+    if (manifest && (await isComplete(env, manifest)) && sameFiles(await readVersionFiles(env, manifest), files)) {
+        return { env, action: 'skip', reason: 'uploaded', version: manifest.version }
     }
     return { env, action: 'create' }
 }
@@ -126,7 +135,7 @@ export type SeedResult = SeedPlan | { env: RulesetEnv; action: 'created'; versio
 export async function seedEnvironments(files: RulesetDraftFile[], apply: boolean): Promise<SeedResult[]> {
     const results: SeedResult[] = []
     for (const env of RULESET_ENVS) {
-        const plan = await planSeed(env)
+        const plan = await planSeed(env, files)
         const creates = apply && plan.action === 'create'
         results.push(creates ? { env, action: 'created', version: await seedRuleset(env, files) } : plan)
     }

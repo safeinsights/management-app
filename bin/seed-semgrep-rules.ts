@@ -5,7 +5,8 @@
 //
 // upload: with si-devops credentials, writes the iac rules, their fixtures and the research code
 // corpus as a new version under every rulesets/<env>/ prefix. An environment with a published
-// version, or with a complete latest version, is left alone. It never writes published.json.
+// version, or whose complete latest version holds these same files, is left alone. It never writes
+// published.json.
 //
 // publish: with one environment's credentials and its JOB_QUEUE_URL, queues the gated publish of that
 // version in that environment's JobWorker, which refuses a version that is not newer than the

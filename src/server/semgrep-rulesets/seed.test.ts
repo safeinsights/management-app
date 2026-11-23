@@ -1,10 +1,10 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { mockClient } from 'aws-sdk-client-mock'
-import { onTestFinished, vi } from 'vitest'
+import { SendMessageCommand } from '@aws-sdk/client-sqs'
+import { onTestFinished } from 'vitest'
 import { describe, expect, it } from '@/tests/unit.helpers'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 import { stubRulesBucket } from '@/tests/semgrep-rules-s3.helpers'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { planSeed, readSeedFiles, requestSeedPublish, SEED_AUTHOR, seedEnvironments, seedRuleset } from './seed'
@@ -74,7 +74,7 @@ describe('readSeedFiles', () => {
 describe('planSeed', () => {
     it('creates a version in an empty environment', async () => {
         stubRulesBucket()
-        expect(await planSeed('staging')).toEqual({ env: 'staging', action: 'create' })
+        expect(await planSeed('staging', files)).toEqual({ env: 'staging', action: 'create' })
     })
 
     it('leaves an environment with a published version alone', async () => {
@@ -91,13 +91,35 @@ describe('planSeed', () => {
                 requestId: '0195f1a4-6b52-7a3c-9e21-3f4d5c6b7a80',
             }),
         )
-        expect(await planSeed('dev')).toEqual({ env: 'dev', action: 'skip', reason: 'published', version: 'v4' })
+        expect(await planSeed('dev', files)).toEqual({
+            env: 'dev',
+            action: 'skip',
+            reason: 'published',
+            version: 'v4',
+        })
     })
 
-    it('leaves an environment alone once its latest version is complete, so a second run writes nothing', async () => {
+    it('leaves an environment alone once its latest version holds the seed files, in any order', async () => {
         stubRulesBucket()
         await seedRuleset('dev', files)
-        expect(await planSeed('dev')).toEqual({ env: 'dev', action: 'skip', reason: 'uploaded', version: 'v1' })
+        expect(await planSeed('dev', files.toReversed())).toEqual({
+            env: 'dev',
+            action: 'skip',
+            reason: 'uploaded',
+            version: 'v1',
+        })
+    })
+
+    it.each([
+        ['changed content', [files[0], { ...files[1], content: 'token <- "fixed"' }]],
+        ['one file more', [...files, { path: 'tests/corpus/notebooks/load.R', content: 'read.csv(f)' }]],
+        ['one file fewer', [files[0]]],
+    ])('creates the next version when the complete latest version holds other files: %s', async (_, seed) => {
+        stubRulesBucket()
+        await seedRuleset('dev', files)
+
+        expect(await planSeed('dev', seed)).toEqual({ env: 'dev', action: 'create' })
+        expect(await seedRuleset('dev', seed)).toBe('v2')
     })
 
     it('creates the next version after an upload that stopped half way', async () => {
@@ -105,7 +127,7 @@ describe('planSeed', () => {
         await seedRuleset('dev', files)
         bucket.objects.delete('rulesets/dev/v1/tests/secrets.r')
 
-        expect(await planSeed('dev')).toEqual({ env: 'dev', action: 'create' })
+        expect(await planSeed('dev', files)).toEqual({ env: 'dev', action: 'create' })
         expect(await seedRuleset('dev', files)).toBe('v2')
     })
 })
@@ -159,13 +181,7 @@ describe('seedEnvironments', () => {
 
 describe('requestSeedPublish', () => {
     it('queues a publish the change job accepts, requested by the seed', async () => {
-        const sqs = mockClient(SQSClient)
-        onTestFinished(() => sqs.restore())
-        sqs.on(SendMessageCommand).resolves({})
-        vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
-        onTestFinished(() => {
-            vi.unstubAllEnvs()
-        })
+        const sqs = stubJobQueue()
 
         const requestId = await requestSeedPublish('v1')
 
