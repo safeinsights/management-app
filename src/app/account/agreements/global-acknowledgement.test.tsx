@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
 import type { PendingGlobalAcknowledgement } from '@/schema/legal-document'
-import { GlobalAcknowledgementModal } from './global-acknowledgement-modal'
+import { GlobalAcknowledgement } from './global-acknowledgement'
 
 const pending = (type: 'TOS' | 'PN', isUpdate = true): PendingGlobalAcknowledgement => ({
     type,
@@ -17,8 +17,7 @@ const renderGate = (documents: PendingGlobalAcknowledgement[], overrides: { isCh
     const onCheckedChange = vi.fn()
     const onContinue = vi.fn()
     renderWithProviders(
-        <GlobalAcknowledgementModal
-            isVisible
+        <GlobalAcknowledgement
             documents={documents}
             isChecked={overrides.isChecked ?? false}
             onCheckedChange={onCheckedChange}
@@ -27,17 +26,17 @@ const renderGate = (documents: PendingGlobalAcknowledgement[], overrides: { isCh
             error={null}
         />,
     )
-    return { onCheckedChange, onContinue }
+    // What a sighted reader sees: the links' screen-reader note is covered on its own.
+    const visibleText = () =>
+        screen.getByRole('heading').parentElement?.textContent?.replaceAll(' (opens in a new tab)', '')
+    return { onCheckedChange, onContinue, visibleText }
 }
 
-// What a sighted reader sees: the links' screen-reader note is covered on its own.
-const visibleText = () => screen.getByRole('dialog').textContent?.replaceAll(' (opens in a new tab)', '')
-
-describe('GlobalAcknowledgementModal', () => {
+describe('GlobalAcknowledgement', () => {
     it('welcomes the user under a single heading', () => {
         renderGate([TOS])
 
-        expect(screen.getByRole('dialog', { name: 'Welcome to SafeInsights!' })).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1, name: 'Welcome to SafeInsights!' })).toBeDefined()
         expect(screen.getAllByRole('heading')).toHaveLength(1)
     })
 
@@ -68,27 +67,27 @@ describe('GlobalAcknowledgementModal', () => {
             label: 'I have read and agree to the Terms of Service and Privacy Notice.',
         },
     ])('says "$body"', ({ documents, body, label }) => {
-        renderGate(documents)
+        const { visibleText } = renderGate(documents)
 
         expect(visibleText()).toContain(body)
         expect(screen.getByRole('checkbox', { name: label })).toBeDefined()
     })
 
-    it('links each document to its /legal tab in a new browser tab', () => {
+    it('links each document to its public page in a new browser tab', () => {
         renderGate([TOS, PN])
 
         const tos = screen.getByRole('link', { name: /^Terms of Service/ })
-        expect(tos.getAttribute('href')).toBe(`${Routes.legal}?tab=TOS`)
+        expect(tos.getAttribute('href')).toBe(Routes.termsOfService)
         expect(tos.getAttribute('target')).toBe('_blank')
 
         const pn = screen.getByRole('link', { name: /^Privacy Notice/ })
-        expect(pn.getAttribute('href')).toBe(`${Routes.legal}?tab=PN`)
+        expect(pn.getAttribute('href')).toBe(Routes.privacyNotice)
         expect(pn.getAttribute('target')).toBe('_blank')
     })
 
     // Nothing but the heading, one sentence, the checkbox and the button: the document is a link away.
     it('links to the document rather than embedding it', () => {
-        renderGate([TOS])
+        const { visibleText } = renderGate([TOS])
 
         expect(visibleText()).toBe(
             'Welcome to SafeInsights!' +

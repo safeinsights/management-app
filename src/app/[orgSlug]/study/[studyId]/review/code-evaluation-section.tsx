@@ -6,7 +6,7 @@ import { type UseFormReturnType } from '@mantine/form'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionRadio } from '@/components/study/decision-radio'
-import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
+import { fieldErrorId, FieldErrorBox, radioGroupAria, useWidgetBlur } from '@/components/form-field'
 import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
 import { InfoTooltip } from '@/components/tooltip'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
@@ -19,7 +19,7 @@ import {
 } from '@/hooks/use-code-review-evaluation-map'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
-import { legalDocumentCollectionLabels } from '@/schema/legal-document'
+import { TEST_STUDY_NOTE } from '@/components/study/test-study-label'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
@@ -32,8 +32,6 @@ const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = 
 export const criterionFieldId = (key: CodeReviewCriteriaKey) => `criteria-${key}`
 
 export const CRITERIA_SECTION_ERROR_ID = 'code-evaluation-criteria'
-
-const TEST_STUDY_AGREEMENT_NOTE = `This is a test study. Therefore ${legalDocumentCollectionLabels.SLA} do not exist for this study.`
 
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>
@@ -75,8 +73,6 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         />
     ))
 
-    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper; the
-    // role="radiogroup" element takes its name from labelProps.id instead.
     const labelId = `${fieldId}-label`
 
     return (
@@ -93,8 +89,8 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
                 value={value ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
+                {...radioGroupAria(labelId)}
                 name={fieldId}
-                labelProps={{ id: labelId }}
                 flex={1}
             >
                 <Group justify="space-between" wrap="nowrap">
@@ -131,12 +127,12 @@ function AgreementTerm({ isTestStudy }: { isTestStudy: boolean }) {
 
     return (
         <>
-            <InfoTooltip label={TEST_STUDY_AGREEMENT_NOTE}>
+            <InfoTooltip label={TEST_STUDY_NOTE}>
                 <Text span inherit td="underline dashed" data-testid="criteria-agreement-term">
                     Study Agreement
                 </Text>
             </InfoTooltip>
-            <VisuallyHidden> ({TEST_STUDY_AGREEMENT_NOTE})</VisuallyHidden>
+            <VisuallyHidden> ({TEST_STUDY_NOTE})</VisuallyHidden>
         </>
     )
 }

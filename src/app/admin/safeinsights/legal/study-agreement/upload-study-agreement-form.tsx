@@ -92,8 +92,8 @@ const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
 
 const NoStudiesWaiting: FC = () => (
     <Text c="dimmed">
-        No approved studies are waiting for a study agreement. A study becomes available here once its proposal has been
-        approved and it does not already have one.
+        No approved studies are waiting for a {legalDocumentTypeLabels.SLA}. A study becomes available here once its
+        proposal has been approved and it does not already have one.
     </Text>
 )
 
@@ -125,7 +125,7 @@ const StudySelect: FC<{
             />
             <Select
                 label="Study"
-                description="Only approved studies without a study agreement are listed"
+                description={`Only approved studies without a ${legalDocumentTypeLabels.SLA} are listed`}
                 placeholder="Select a study"
                 data={candidates.studyOptions}
                 value={candidates.studyId}

@@ -9,7 +9,7 @@ import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-documen
 import { Anchor, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
-import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
+import { EMPTY_CELL, formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { PreviewDocument } from './preview-document'
 
 type Scope = { type: LegalDocumentType; orgId?: string; studyId?: string }
@@ -66,7 +66,7 @@ const columnsFor = (scope: Scope): DataTableColumn<Version>[] => [
     { accessor: 'versionNumber', title: 'Version' },
     ...(hasSignatory(scope) ? [SIGNED_ON_COLUMN] : []),
     { accessor: 'publishedAt', title: 'Published on', render: (version) => formatInstantAsUtcDay(version.publishedAt) },
-    { accessor: 'publishedByName', title: 'Published by', render: (version) => version.publishedByName ?? '—' },
+    { accessor: 'publishedByName', title: 'Published by', render: (version) => version.publishedByName ?? EMPTY_CELL },
     documentColumnFor(scope.type),
 ]
 

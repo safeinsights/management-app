@@ -425,3 +425,23 @@ afterAll(async () => {
         await testTransaction.close()
     }
 })
+
+// happy-dom dispatches selectionchange synchronously inside setBaseAndExtent, before it records the
+// direction, so Lexical re-reads a backward selection as forward. Browsers queue the event, so
+// deliver it after the call instead (happy-dom 21.0.4, Selection.ts #associateRange).
+if (typeof Selection !== 'undefined') {
+    const domSetBaseAndExtent = Selection.prototype.setBaseAndExtent
+    let settingBaseAndExtent = false
+    document.addEventListener('selectionchange', (event) => settingBaseAndExtent && event.stopImmediatePropagation(), {
+        capture: true,
+    })
+    Selection.prototype.setBaseAndExtent = function (...args) {
+        settingBaseAndExtent = true
+        try {
+            domSetBaseAndExtent.apply(this, args)
+        } finally {
+            settingBaseAndExtent = false
+        }
+        queueMicrotask(() => document.dispatchEvent(new Event('selectionchange')))
+    }
+}

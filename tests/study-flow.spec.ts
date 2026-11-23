@@ -605,6 +605,16 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
 
         await study.uploadResubmitFilesExpectingInheritedMain(page)
 
+        // OTTER-1073: the upload opened a new round, and the dashboard must lead back to Edit code
+        // rather than the decided round's view-only /code.
+        await visitAsRole(page, study.RESEARCHER_DASHBOARD)
+        const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+        await expect(studyRow).toContainText('Code draft')
+        await study.clickViewLink(page, studyRow)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyResubmit))
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
+        await expect(page.getByRole('radio', { name: 'analysis.r is the main file', exact: true })).toBeVisible()
+
         // Filling the note fires the debounced autosave against the real action: the "All changes
         // saved" indicator must appear and no "can no longer be changed" toast. This guards the page +
         // autosave + resubmit wiring on a Results-ready study, NOT the ordering bug itself: this seed
@@ -768,12 +778,12 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         // is still a real target for the click and the focus jump below.
         await expect(study.datasetsField(page)).toHaveAttribute('placeholder', /^\s*$/)
         await expect(study.datasetsField(page)).toHaveAttribute('data-type', 'visible')
-        await expect(page.getByRole('textbox', { name: 'Principal Investigator' })).toHaveAttribute('placeholder', '')
+        await expect(page.getByRole('combobox', { name: 'Principal Investigator' })).toHaveAttribute('placeholder', '')
 
         // Its own required fields still flag on blur (OTTER-647), now with per-field wording.
         await study.datasetsField(page).click()
         await page.keyboard.press('Escape')
-        await page.getByRole('textbox', { name: 'Principal Investigator' }).click()
+        await page.getByRole('combobox', { name: 'Principal Investigator' }).click()
         await expect(page.getByText('Select a dataset of interest before continuing.').first()).toBeVisible()
         await page.keyboard.press('Escape')
         // Leave the field before clicking Submit: its error appearing on blur shifts Submit down

@@ -80,9 +80,11 @@ const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: str
         </QueryClientProvider>,
     )
 
-const unlock = async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
-    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+// Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+const unlock = async (root: HTMLElement) => {
+    const privateKey = await readTestSupportFile('private_key.pem')
+    fireEvent.change(within(root).getByRole('textbox'), { target: { value: privateKey } })
+    fireEvent.click(within(root).getByRole('button', { name: 'View files' }))
 }
 
 const textIncludes = (needle: string) => (_: string, element: Element | null) =>
@@ -100,7 +102,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
 
-    it('shows the outputs-available banner with the run-complete date, addressed to the lab', async () => {
+    it('shows the outputs-available banner with the run-complete date, addressed to the lab in semibold', async () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
@@ -109,20 +111,21 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         expect(alert).toHaveTextContent(
             `Enter your security key to decrypt the outputs, review them, and then share with ${study.submittingLabName}.`,
         )
+        expect(within(alert).getByText(study.submittingLabName).style.fontWeight).toBe('var(--si-font-weight-semibold)')
     })
 
     it('asks for the security key and hides the review view until a key validates', async () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText(
                 'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
             ),
         ).toBeInTheDocument()
         expect(await screen.findByRole('button', { name: 'View files' })).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
         expect(screen.queryByTestId('outputs-submit-decision')).toBeNull()
     })
@@ -135,14 +138,15 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
         })
-        await renderScreen({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
+        const { container } = await renderScreen({ study, raw }, org.slug)
+        const view = within(container)
+        await view.findByRole('button', { name: 'View files' })
 
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
-        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+        fireEvent.change(view.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
+        fireEvent.click(view.getByRole('button', { name: 'View files' }))
 
         expect(await screen.findByText(textIncludes('Invalid key. Check that you copied'))).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
     })
 
     it('links Previous step to the read-only code page for this study', async () => {
@@ -185,23 +189,43 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
     ) => {
         const { org, study, job, raw } = await setupAvailable()
         await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files: files })
-        await doRender({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
-        await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        const { container } = await doRender({ study, raw }, org.slug)
+        const view = within(container)
+        await view.findByRole('button', { name: 'View files' })
+        await unlock(container)
+        await waitFor(() => expect(latestRunOutputs(container)).toBeInTheDocument())
         // A DB query still in flight at test end races the per-test transaction rollback and
         // poisons every later test, so wait for the activity query to settle.
-        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
-        return { org, study, job }
+        await waitFor(() => expect(view.getAllByText('No activity yet').length).toBeGreaterThan(0))
+        return { org, study, job, container }
     }
 
     it('swaps the key form for the outputs table, decision section and submit button', async () => {
         await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
 
         expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
-        expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument()
+        expect(latestRunOutputs()).toBeInTheDocument()
         expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
         expect(screen.getByTestId('outputs-submit-decision')).toBeInTheDocument()
+    })
+
+    // OTTER-1062: the run's card keeps its header once the key form gives way to the outputs.
+    it('keeps the Code run header above the decrypted outputs', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+
+        const card = screen.getByTestId('code-run-card')
+        expect(within(card).getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
+        expect(within(card).getByTestId('code-run-outputs')).toHaveTextContent('Output files')
+    })
+
+    it('puts Submit decision in the Decision card and leaves only Previous step in the navigation', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+
+        const decision = screen.getByTestId('outputs-decision-section')
+        expect(within(decision).getByTestId('outputs-submit-decision')).toHaveTextContent('Submit decision')
+        const nav = screen.getByTestId('step-navigation')
+        expect(within(nav).queryByTestId('outputs-submit-decision')).toBeNull()
+        expect(within(nav).getByRole('link', { name: /Previous step/ })).toBeInTheDocument()
     })
 
     it('replaces the available banner with the review-before-sharing warning', async () => {
@@ -214,6 +238,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         expect(alert).toHaveTextContent(
             `As the reviewer, you are responsible for checking the outputs for sensitive or restricted information* before they are shared with ${labName}.`,
         )
+        expect(within(alert).getByText(labName).style.fontWeight).toBe('var(--si-font-weight-semibold)')
         expect(alert).toHaveTextContent(
             '*Sensitive data could cause harm if disclosed, such as personally identifiable information (PII). Restricted data is limited by a data use agreement or policy.',
         )
@@ -250,10 +275,10 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
     })
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
-        const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+        const { study, container } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
         const labName = study.submittingLabName
 
-        fireEvent.click(screen.getByTestId('outputs-submit-decision'))
+        fireEvent.click(within(container).getByTestId('outputs-submit-decision'))
 
         expect(await screen.findByText(textIncludes(`Enter your feedback for ${labName}`))).toBeInTheDocument()
         expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
@@ -279,7 +304,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         expect(screen.queryByTestId('code-run-history')).toBeNull()
     })
 
-    it('sits below the key card, then stays open below the outputs once they are decrypted', async () => {
+    it('sits below the key card, then stays open, opened row included, below the Decision card once the outputs are decrypted', async () => {
         const { org, study, job, raw } = await setupAvailable('RUN-COMPLETE', [
             { ranAt: dayjs().subtract(3, 'day').toDate() },
             { ranAt: dayjs().subtract(6, 'day').toDate(), outcome: 'JOB-ERRORED', decision: 'FILES-REJECTED' },
@@ -288,28 +313,58 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
         })
-        await renderScreen({ study, raw }, org.slug)
-        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+        const { container } = await renderScreen({ study, raw }, org.slug)
+        const view = within(container)
+        await within(view.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
 
-        const history = screen.getByTestId('code-run-history')
+        const history = view.getByTestId('code-run-history')
         expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
-        expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
+        expect(isBefore(view.getByTestId('security-key-form'), history)).toBe(true)
         fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+        const [row] = await within(history).findAllByRole('button', { name: /^Code run / })
+        fireEvent.click(row)
+        expect(row).toHaveAttribute('aria-expanded', 'true')
 
-        await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await unlock(container)
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
+
+        // The table takes the focus the key form held, and one polite message covers every run.
+        expect(within(latestRunOutputs()).getByText('Output files')).toHaveFocus()
+        expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
 
         // The same node, still open: decrypting must not remount the history.
         expect(screen.getByTestId('code-run-history')).toBe(history)
-        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toHaveAttribute(
-            'aria-expanded',
-            'true',
-        )
-        expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
-        expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
+        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
+        expect(row).toHaveAttribute('aria-expanded', 'true')
+        // OTTER-1062: Code run card, Decision card, history, then Previous step.
+        expect(isBefore(screen.getByTestId('code-run-card'), screen.getByTestId('outputs-decision-section'))).toBe(true)
+        expect(isBefore(screen.getByTestId('outputs-decision-section'), history)).toBe(true)
+        expect(isBefore(history, screen.getByTestId('step-navigation'))).toBe(true)
     })
 })
+
+describe('ReviewerOutputsAvailableScreen code run history rows', () => {
+    // OTTER-1070 configures the shared history for the research lab only.
+    it('lists no code files in a row, even for a run that has them', async () => {
+        const { org, study, raw } = await setupAvailable('RUN-COMPLETE', [
+            { ranAt: dayjs().subtract(3, 'day').toDate(), codeFiles: ['main.R'] },
+        ])
+        await renderScreen({ study, raw }, org.slug)
+        const history = screen.getByTestId('code-run-history')
+        fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+        const [row] = await within(history).findAllByTestId('code-run-history-row')
+        fireEvent.click(within(row).getByRole('button', { name: /^Code run / }))
+
+        expect(await within(row).findByText('Output files')).toBeVisible()
+        expect(within(row).queryByText(/^Code files/)).toBeNull()
+        expect(within(row).queryByText('main.R')).toBeNull()
+    })
+})
+
+// History rows render their own outputs section, so look inside the latest run's card.
+const latestRunOutputs = (root: HTMLElement = document.body) =>
+    within(within(root).getByTestId('code-run-card')).getByTestId('code-run-outputs')
 
 const isBefore = (first: Element, second: Element) =>
     !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -343,10 +398,10 @@ describe('ReviewerOutputsAvailableScreen with an earlier run', () => {
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
+        const { container } = await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
-        await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await unlock(container)
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
 
         expect(screen.getByRole('button', { name: 'latest.csv' })).toBeInTheDocument()

@@ -1,4 +1,4 @@
-import { type FC } from 'react'
+import { type FC, type ReactNode } from 'react'
 import { Button, Group, Loader, type ModalProps, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 
@@ -8,7 +8,7 @@ interface SubmitConfirmationModalProps extends Pick<ModalProps, 'size' | 'center
     onConfirm: () => void
     isSubmitting: boolean
     title: string
-    body: string
+    body: ReactNode
     confirmLabel: string
     /** Omit to keep Mantine's default treatment, which covers the label with a loader overlay. */
     confirmLoadingLabel?: string

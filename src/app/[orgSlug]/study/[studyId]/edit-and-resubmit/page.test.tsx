@@ -7,10 +7,9 @@ import StudyEditAndResubmitRoute from './page'
 import { EditResubmitForm } from './form'
 
 // The route is a server component, so its output is inspected as a tree rather than rendered:
-// Stack > EditResubmitProvider > EditResubmitForm.
+// EditResubmitProvider > EditResubmitForm.
 const formProps = (page: ReactElement) => {
-    const provider = (page.props as { children: ReactElement }).children
-    const form = (provider.props as { children: ReactElement }).children
+    const form = (page.props as { children: ReactElement }).children
     expect(form.type).toBe(EditResubmitForm)
     return form.props as Parameters<typeof EditResubmitForm>[0]
 }

@@ -211,6 +211,130 @@ describe('Study Job Actions', () => {
         expect(result).toHaveLength(0)
     })
 
+    // A run shared before the researcher replaced their key is wrapped for the old key only.
+    describe('fetchEncryptedJobFilesAction with an earlier key fingerprint', () => {
+        const insertEncryptedFile = (jobId: string) =>
+            db
+                .insertInto('studyJobFile')
+                .values({
+                    path: `results/${jobId}/encrypted-results.zip`,
+                    name: 'encrypted-results.zip',
+                    studyJobId: jobId,
+                    fileType: 'ENCRYPTED-RESULT',
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+
+        const wrapFor = (studyJobFileId: string, fingerprint: string, crypt: string) =>
+            db
+                .insertInto('studyJobFileRecipientKey')
+                .values({ studyJobFileId, filePath: 'results.csv', fingerprint, crypt })
+                .executeTakeFirstOrThrow()
+
+        const setup = async ({ withCurrentKey = true } = {}) => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { job, study } = await insertTestStudyJobData({ org })
+            if (withCurrentKey) {
+                await db
+                    .insertInto('userPublicKey')
+                    .values({ userId: user.id, publicKey: Buffer.from('current'), fingerprint: 'currentFingerprint' })
+                    .executeTakeFirstOrThrow()
+            }
+            const file = await insertEncryptedFile(job.id)
+            await wrapFor(file.id, 'oldFingerprint', 'wrapped-for-old-key')
+            await wrapFor(file.id, 'currentFingerprint', 'wrapped-for-current-key')
+            return { job, study }
+        }
+
+        test('returns only the wraps for the named fingerprint', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({
+                    jobId: job.id,
+                    type: 'researcher',
+                    fingerprint: 'oldFingerprint',
+                }),
+            )
+
+            expect(result).toHaveLength(1)
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-old-key' })
+        })
+
+        test('returns the current key wraps when no fingerprint is named', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
+
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-current-key' })
+        })
+
+        test('ignores the fingerprint for a reviewer, who decrypts from the manifest', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'reviewer', fingerprint: 'oldFingerprint' }),
+            )
+
+            expect(result).toHaveLength(1)
+            expect(result[0].recipientKeys).toEqual({})
+        })
+
+        test('returns nothing for a fingerprint with no wraps on this job', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher', fingerprint: 'unknown' }),
+            )
+
+            expect(result).toEqual([])
+        })
+
+        test("never returns the same fingerprint's wraps from another job", async () => {
+            const { job, study } = await setup()
+            const otherJob = await insertTestJob(study.id)
+            const otherFile = await insertEncryptedFile(otherJob.id)
+            await wrapFor(otherFile.id, 'oldFingerprint', 'wrapped-on-another-job')
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({
+                    jobId: job.id,
+                    type: 'researcher',
+                    fingerprint: 'oldFingerprint',
+                }),
+            )
+
+            expect(result.map((file) => file.recipientKeys)).toEqual([{ 'results.csv': 'wrapped-for-old-key' }])
+        })
+
+        test('refuses a user who cannot view the job, even with a valid fingerprint', async () => {
+            const { job } = await setup()
+            await mockSessionWithTestData({ orgType: 'lab' })
+
+            const result = await fetchEncryptedJobFilesAction({
+                jobId: job.id,
+                type: 'researcher',
+                fingerprint: 'oldFingerprint',
+            })
+
+            expect(result).toEqual({ error: expect.anything() })
+        })
+
+        test('returns the wraps to a researcher with no current key who names an earlier one', async () => {
+            const { job } = await setup({ withCurrentKey: false })
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({
+                    jobId: job.id,
+                    type: 'researcher',
+                    fingerprint: 'oldFingerprint',
+                }),
+            )
+
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-old-key' })
+        })
+    })
+
     describe('dual-role and stale org claims', () => {
         async function setupDualRoleFixture() {
             const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()

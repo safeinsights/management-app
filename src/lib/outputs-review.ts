@@ -2,7 +2,7 @@ import type { FileType, ReviewDecision, StudyJobStatus } from '@/database/types'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { APPROVED_LOG_TYPES } from '@/lib/file-type-helpers'
 import { DECISION_NOTICES } from '@/lib/review-decision'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { latestStatusAt, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 export type OutputsDecision = 'share-outputs' | 'share-feedback-only'
 
@@ -40,6 +40,17 @@ export const codeRunEndedAt = (
         .reduce<
             Date | string | null
         >((latest, c) => (latest && new Date(latest) >= new Date(c.createdAt) ? latest : c.createdAt), null)
+
+// The research lab sees a run once the reviewer decides on it, so its card, banner and history rows
+// are dated by that decision. Approved first: an errored run that was shared routes to a share screen.
+export const researcherRunDate = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
+): Date | string | null =>
+    latestStatusAt(statusChanges, 'FILES-APPROVED') ?? latestStatusAt(statusChanges, 'FILES-REJECTED')
+
+// The reviewer chose not to share this run's outputs, so they are never fetched or shown.
+export const isFeedbackOnlyRun = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>
+    statusChanges.some((change) => change.status === 'FILES-REJECTED')
 
 export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
     includesStatus(jobStatuses, OUTPUTS_REVIEWABLE_JOB_STATUSES)
@@ -79,6 +90,13 @@ export const OUTPUTS_DECISION_FAILURE = {
         'Reload the page and try again. You will be asked for your security key again, so copy your feedback somewhere safe first.',
 } as const
 
+// The status sentence under "Security key" on both roles' code run cards.
+export const OUTPUTS_KEY_DESCRIPTIONS = {
+    awaitingView:
+        'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
+    viewed: 'The outputs are encrypted. Enter your security key to view them again.',
+} as const
+
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
 
 export type OutputFileOrder = { fileType: FileType; name: string }
@@ -100,10 +118,13 @@ export const OUTPUTS_DECISION_ERRORS = {
     decisionMissing: 'Select an option before submitting',
 } as const
 
-// One shape for an outputs decision wherever it is shown, so the decided page and the code run
-// history label the same decision the same way.
+// One shape for an outputs decision wherever it is shown. Each run has its own card, so every
+// decision reads "Reviewer feedback" without a version (OTTER-883).
 export const toOutputsFeedbackEntry = <T extends { round: number | null }>(row: T) => ({
     ...row,
     entryType: 'REVIEWER-FEEDBACK' as const,
-    version: row.round,
 })
+
+// Earlier runs show their own decisions in the code run history, so a run's card holds only its own.
+export const latestRunFeedback = <T extends { studyJobId: string | null }>(entries: T[], jobId: string): T[] =>
+    entries.filter((entry) => entry.studyJobId === jobId)

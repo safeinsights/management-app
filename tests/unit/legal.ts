@@ -1,5 +1,8 @@
 import { db } from '@/database'
-import { writeStudyAgreementVersion } from '@/server/db/legal-document'
+import type { LegalDocumentType } from '@/database/types'
+import { pathForLegalDocumentVersion } from '@/lib/paths'
+import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
+import { v7 as uuidv7 } from 'uuid'
 
 // Legal documents are global singletons, so version counts assert on database-wide state.
 // Keep the delete order, or the foreign keys refuse and concurrent suites deadlock.
@@ -35,6 +38,40 @@ export const insertTestStudyAgreement = async ({
         versionNumber,
         published,
     })
+}
+
+type InsertTestLegalDocumentOptions = {
+    type: Exclude<LegalDocumentType, 'SLA'>
+    publishedBy: string
+    /** Set for a ropa/dopa; tos/pn are global. */
+    orgId?: string
+    versionNumber?: number
+}
+
+// A published tos/pn/ropa/dopa written directly, so a test owes one without stubbing the S3 upload.
+export const insertTestLegalDocument = async ({
+    type,
+    publishedBy,
+    orgId,
+    versionNumber = 1,
+}: InsertTestLegalDocumentOptions) => {
+    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type, orgId })
+    const versionId = uuidv7()
+    return await db
+        .insertInto('legalDocumentVersion')
+        .values({
+            id: versionId,
+            legalDocumentId,
+            versionNumber,
+            fileName: orgId ? 'agreement.pdf' : `${type.toLowerCase()}.md`,
+            format: orgId ? 'pdf' : 'markdown',
+            filePath: pathForLegalDocumentVersion({ type, legalDocumentId, versionId }),
+            publishedAt: new Date(),
+            publishedBy,
+            signedAt: orgId ? '2026-01-01' : null,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
 }
 
 // A real agreement plus its acknowledgements, rather than marking fixtures test studies: otherwise

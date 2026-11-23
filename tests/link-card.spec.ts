@@ -23,7 +23,7 @@ async function expectFocusKept(page: Page, field: Locator) {
 test('a focus move right after Escape on a link card stays on the new field', async ({ browser, studyFeatures }) => {
     await withRole(browser, 'researcher', async (page) => {
         const card = await openNotesLinkCard(page, studyFeatures.uniqueTitle('link-card-escape'))
-        const piField = page.getByRole('textbox', { name: 'Principal Investigator' })
+        const piField = page.getByRole('combobox', { name: 'Principal Investigator' })
 
         await piField.evaluate((field) => {
             document.activeElement?.dispatchEvent(
@@ -40,7 +40,7 @@ test('a focus move right after Escape on a link card stays on the new field', as
 test('a focus move right after Remove link stays on the new field', async ({ browser, studyFeatures }) => {
     await withRole(browser, 'researcher', async (page) => {
         const card = await openNotesLinkCard(page, studyFeatures.uniqueTitle('link-card-remove'))
-        const piField = page.getByRole('textbox', { name: 'Principal Investigator' })
+        const piField = page.getByRole('combobox', { name: 'Principal Investigator' })
         const removeButton = card.getByRole('button', { name: 'Remove link' })
 
         await removeButton.evaluate(

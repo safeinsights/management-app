@@ -318,6 +318,23 @@ describe('OutputsDecisionSection radio buttons', () => {
     })
 })
 
+describe('OutputsDecisionSection submit action', () => {
+    it('renders the submit action inside the card, below the options', () => {
+        renderSection({ submitAction: <button type="button">Submit decision</button> })
+
+        const section = screen.getByTestId('outputs-decision-section')
+        const submit = within(section).getByRole('button', { name: 'Submit decision' })
+        const group = within(section).getByRole('radiogroup')
+        expect(group.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('renders no submit row without an action', () => {
+        renderSection()
+
+        expect(screen.queryByRole('button', { name: 'Submit decision' })).toBeNull()
+    })
+})
+
 // See the matching blocks in the two reviewer feedback sections.
 describe('OutputsDecisionSection save label and error exclusivity', () => {
     it('replaces the save label with the empty-field error rather than showing both', async () => {

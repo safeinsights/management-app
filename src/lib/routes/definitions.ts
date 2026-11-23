@@ -116,6 +116,8 @@ export const Routes = {
         StudyParams.extend({ userId: z.string().optional() }),
     ),
 
+    accountAgreements: '/account/agreements' as Route,
+
     accountKeys: '/account/keys' as Route,
 
     accountMfa: '/account/mfa' as Route,
@@ -143,6 +145,11 @@ export const Routes = {
     userKey: '/user-key' as Route,
 
     legal: '/legal' as Route,
+
+    // Public, so an invitee can read them before an account exists.
+    termsOfService: '/terms-of-service' as Route,
+
+    privacyNotice: '/privacy-notice' as Route,
 
     support: '/support' as Route,
 

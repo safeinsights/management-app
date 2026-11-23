@@ -247,6 +247,19 @@ The first run takes a few minutes. Later runs are fast: the app is rebuilt only 
 To have Claude Code use docker e2e tests, see the "Claude Code integration" section of
 [PR #1281](https://github.com/safeinsights/management-app/pull/1281).
 
+##### Browsers on your host
+
+For WebKit, Firefox, Chrome, Safari or a headed browser, start a host session: the app stays in Docker, the browsers run on your host. For Safari, open the printed app URL.
+
+```bash
+pnpm exec playwright install chromium webkit firefox   # once
+./bin/docker-e2e --up --host                           # start, prints the app URL
+./bin/docker-e2e --host-run -- --project=webkit tests/signin.spec.ts
+./bin/docker-e2e --down                                # end; plain runs are refused until then
+```
+
+For Claude Code, see the "Claude Code integration" section of [PR #1296](https://github.com/safeinsights/management-app/pull/1296).
+
 #### Results
 
 Failures leave a screenshot, `error-context.md` and `trace.zip` under `test-results/e2e/<test>/`. Open a trace with `pnpm exec playwright show-trace <path>`. In Docker mode the app server's output is in `test-results/e2e-server.log`.

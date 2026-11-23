@@ -401,7 +401,7 @@ describe('PostFeedbackView', () => {
             expect(screen.getByRole('heading', { name: 'Review code v2.0', level: 2 })).toBeInTheDocument()
         })
 
-        it('places Feedback and notes between STEP 2 and Submission details on a resubmission', async () => {
+        it('places Feedback and notes after Submission details on a resubmission', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy } = await insertTestStudyJobData({
                 org,
@@ -432,8 +432,8 @@ describe('PostFeedbackView', () => {
             const stepHeader = screen.getByTestId('proposal-section-header')
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
-            expect(stepHeader.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-            expect(feedback.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(stepHeader.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
         it('renders the informative banner with code-approved copy', () => {

@@ -128,7 +128,7 @@ describe('UserParticipationAgreements', () => {
         expect(screen.getByRole('heading', { name: 'Research Organization Participation Agreement' })).toBeDefined()
         await waitFor(() =>
             expect(
-                screen.getByText('You have not acknowledged any Research Organization Participation Agreements yet'),
+                screen.getByText('You have not acknowledged any Research Organization Participation Agreement yet'),
             ).toBeDefined(),
         )
     })
@@ -141,7 +141,7 @@ describe('UserParticipationAgreements', () => {
         expect(screen.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeDefined()
         await waitFor(() =>
             expect(
-                screen.getByText('You have not acknowledged any Data Organization Participation Agreements yet'),
+                screen.getByText('You have not acknowledged any Data Organization Participation Agreement yet'),
             ).toBeDefined(),
         )
     })

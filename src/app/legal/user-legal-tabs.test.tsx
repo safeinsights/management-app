@@ -22,27 +22,24 @@ describe('UserLegalTabs', () => {
         expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(TAB_NAMES)
     })
 
-    it('opens on Study Agreements and switches panel on click', async () => {
+    it('opens on Study Agreement and switches panel on click', async () => {
         await mockSessionWithTestData({ orgType: 'enclave' })
 
         renderWithProviders(<UserLegalTabs />)
 
-        await waitFor(() =>
-            expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
-        )
+        await waitFor(() => expect(screen.getByText('You have not acknowledged any Study Agreement yet')).toBeDefined())
 
         await userEvent.click(screen.getByRole('tab', { name: 'Research Organization Participation Agreement' }))
 
         await waitFor(() =>
             expect(
-                screen.getByText('You have not acknowledged any Research Organization Participation Agreements yet'),
+                screen.getByText('You have not acknowledged any Research Organization Participation Agreement yet'),
             ).toBeDefined(),
         )
-        // keepMounted={false}, so the Study Agreements panel unmounts rather than query behind it.
-        expect(screen.queryByText('You have not acknowledged any Study Agreements yet')).toBeNull()
+        // keepMounted={false}, so the Study Agreement panel unmounts rather than query behind it.
+        expect(screen.queryByText('You have not acknowledged any Study Agreement yet')).toBeNull()
     })
 
-    // The Terms of Service gate links here with ?tab=, so the reader lands on the document it named.
     it.each(['TOS', 'PN'] as const)('opens on the tab a ?tab=%s link names', async (type) => {
         await mockSessionWithTestData()
         mockPathname(`${Routes.legal}?tab=${type}`)
@@ -55,7 +52,7 @@ describe('UserLegalTabs', () => {
         )
     })
 
-    it('falls back to Study Agreements for a tab it does not know', async () => {
+    it('falls back to Study Agreement for a tab it does not know', async () => {
         await mockSessionWithTestData()
         mockPathname(`${Routes.legal}?tab=NOPE`)
 

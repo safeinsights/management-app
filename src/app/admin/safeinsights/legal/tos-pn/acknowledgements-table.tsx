@@ -12,7 +12,7 @@ import {
 import { fetchLegalDocumentAcknowledgementsAction } from '@/server/actions/legal-document.actions'
 import { Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
-import { formatInstant, formatInstantAsUtcDay } from '@/lib/dates'
+import { EMPTY_CELL, formatInstant, formatInstantAsUtcDay } from '@/lib/dates'
 
 type AcknowledgementRow = ActionSuccessType<typeof fetchLegalDocumentAcknowledgementsAction>['users'][number]
 
@@ -31,7 +31,7 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
     {
         accessor: 'orgs',
         title: 'Organization',
-        render: (row) => row.orgs.map((org) => org.name).join(', ') || '—',
+        render: (row) => row.orgs.map((org) => org.name).join(', ') || EMPTY_CELL,
     },
     {
         accessor: 'acknowledgedVersionNumber',

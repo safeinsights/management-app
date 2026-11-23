@@ -7,6 +7,7 @@ import {
     insertTestStudyJobData,
     it,
     type Mock,
+    type PriorCodeRunOptions,
     mockSessionWithTestData,
     renderWithProviders,
     requireRawState,
@@ -38,7 +39,8 @@ const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: strin
 const setupAwaitingReview = async ({
     completedAt,
     dataPartnerName,
-}: { completedAt?: Date; dataPartnerName?: string } = {}) => {
+    priorRuns,
+}: { completedAt?: Date; dataPartnerName?: string; priorRuns?: PriorCodeRunOptions[] } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
     // orgId is the data partner, submittedByOrgId the research lab, so a separate org proves the
     // banner names the reviewing partner rather than the lab.
@@ -47,6 +49,7 @@ const setupAwaitingReview = async ({
         org: dataPartner,
         researcherId: user.id,
         jobStatus: 'JOB-RUNNING',
+        priorRuns,
     })
     await db.updateTable('study').set({ submittedByOrgId: org.id }).where('id', '=', dbStudy.id).execute()
     await insertTestJobStatus(job.id, 'CODE-APPROVED')
@@ -58,6 +61,17 @@ const setupAwaitingReview = async ({
 }
 
 describe('OutputsAwaitingReviewScreen', () => {
+    // OTTER-1070: the history is for the statuses after the decision, not while the lab waits for it.
+    it('shows no code run history, even with earlier decided runs', async () => {
+        const { org, study } = await setupAwaitingReview({
+            priorRuns: [{ ranAt: dayjs().subtract(9, 'day').toDate() }],
+        })
+        await renderScreen(study, org.slug)
+
+        expect(screen.getAllByText(/Verify outputs/).length).toBeGreaterThan(0)
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
     it('renders STEP 4 "Verify outputs"', async () => {
         const { org, study } = await setupAwaitingReview()
         await renderScreen(study, org.slug)
@@ -76,7 +90,7 @@ describe('OutputsAwaitingReviewScreen', () => {
         const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
-        expect(alert).toHaveTextContent(copy.body)
+        expect(alert).toHaveTextContent(copy.body as string)
         expect(alert).toHaveTextContent('Clinical Lab Network')
         expect(alert).toHaveAttribute('data-variant', 'informative')
     })

@@ -33,6 +33,8 @@ import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile, storeS3File } from '@/server/aws'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
+import { describeLaunchFailure } from '@/server/coder/launch-failure'
+import { ActionFailure } from '@/lib/errors'
 import { s3Available } from '@/tests/s3.helpers'
 import { MAX_UPLOAD_FILE_BYTES } from '@/lib/types'
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
@@ -59,6 +61,7 @@ const launchStatus = (overrides: Record<string, unknown> = {}) => ({
     ready: true,
     failed: false,
     reason: 'test workspace ready',
+    failureMessage: null,
     cursors: { build: null, agent: null },
     url: 'https://coder.test.example/workspace',
     ...overrides,
@@ -1445,11 +1448,14 @@ describe('StudyCode component', () => {
             return rendered
         }
 
+        // By name: the click hovers Launch IDE, whose hover card is a dialog too.
+        const findLaunchModal = () => screen.findByRole('dialog', { name: 'Setting up the SafeInsights IDE' })
+
         it('opens on launch with the countdown, the bar and the sync copy', async () => {
             stillProvisioning()
             await startLaunch()
 
-            const dialog = await screen.findByRole('dialog')
+            const dialog = await findLaunchModal()
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
             expect(dialog).toHaveTextContent('Launching the IDE in a new tab')
             expect(dialog).toHaveTextContent(/Ready in \d+ minutes/)
@@ -1463,10 +1469,14 @@ describe('StudyCode component', () => {
             const openSpy = vi.spyOn(window, 'open')
             await startLaunch()
 
-            const dialog = await screen.findByRole('dialog')
+            const dialog = await findLaunchModal()
             await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Close' }))
 
-            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            await waitFor(() =>
+                expect(
+                    screen.queryByRole('dialog', { name: 'Setting up the SafeInsights IDE' }),
+                ).not.toBeInTheDocument(),
+            )
             // The card's rule: a launch the researcher walked away from must not steal a tab.
             expect(openSpy).not.toHaveBeenCalled()
             openSpy.mockRestore()
@@ -1548,6 +1558,72 @@ describe('StudyCode component', () => {
                 ),
             )
             expectNoErrorToast()
+        })
+
+        // SHRMP-431: the reason Coder reported is named on screen rather than only sent to Sentry.
+        it.each([
+            [
+                'a refused image pull',
+                /image could not be downloaded/,
+                () =>
+                    vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                        launchStatus({
+                            ready: false,
+                            failed: true,
+                            url: undefined,
+                            reason: 'CannotPullContainerError: pull access denied',
+                            failureMessage: describeLaunchFailure('CannotPullContainerError: pull access denied'),
+                        }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+                    ),
+            ],
+            [
+                'the template refusing the image reference',
+                /image reference is invalid/,
+                () =>
+                    vi.mocked(createUserAndWorkspace).mockRejectedValue(
+                        new ActionFailure(
+                            describeLaunchFailure(
+                                JSON.stringify({
+                                    message: 'Unable to validate parameters',
+                                    validations: [
+                                        {
+                                            field: 'container_image',
+                                            detail: 'Container image must be a plain image reference with no URL scheme (http:// or https://) or spaces',
+                                        },
+                                    ],
+                                }),
+                            ) ?? '',
+                        ),
+                    ),
+            ],
+        ])('names %s in the failed modal and still retries', async (_label, reasonText, arrange) => {
+            arrange()
+            await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: /launch ide/i }))
+
+            const heading = await screen.findByText('IDE failed to launch')
+            const dialog = heading.closest('[role="dialog"]') as HTMLElement
+            await waitFor(() => expect(dialog).toHaveTextContent(reasonText))
+            expect(dialog).toHaveTextContent(/contact SafeInsights support/)
+
+            vi.mocked(createUserAndWorkspace).mockClear()
+            await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
+            await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+        })
+
+        it('keeps the generic text when no reason is available', async () => {
+            vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
+            await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            await userEvent.setup().click(screen.getByRole('button', { name: /launch ide/i }))
+
+            const heading = await screen.findByText('IDE failed to launch')
+            const dialog = heading.closest('[role="dialog"]') as HTMLElement
+            expect(within(dialog).queryByTestId('ide-launch-failure-reason')).not.toBeInTheDocument()
         })
 
         it('closes without retrying when dismissed', async () => {
@@ -1881,7 +1957,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => {
-                expect(screen.getByText(/Study agreements are being prepared/i)).toBeInTheDocument()
+                expect(screen.getByText(/Study Agreement is being prepared/)).toBeInTheDocument()
                 expect(submitCodeButton()).toBeDisabled()
             })
         })
@@ -1891,7 +1967,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => expect(submitCodeButton()).toBeEnabled())
-            expect(screen.queryByText(/Study agreements are being prepared/i)).toBeNull()
+            expect(screen.queryByText(/Study Agreement is being prepared/)).toBeNull()
         })
     })
 

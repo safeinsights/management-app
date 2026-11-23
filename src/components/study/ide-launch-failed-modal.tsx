@@ -14,12 +14,22 @@ const supportLine = (supportRef: string | null) =>
         ? `If the issue persists, contact SafeInsights support with Ref: ${supportRef}.`
         : 'If the issue persists, contact SafeInsights support.'
 
+const FailureReason: FC<{ reason: string | null }> = ({ reason }) => {
+    if (!reason) return null
+    return (
+        <Text size="sm" data-testid="ide-launch-failure-reason">
+            {reason}
+        </Text>
+    )
+}
+
 type IdeLaunchFailedModalProps = {
     isOpen: boolean
     onClose: () => void
     onRetry: () => void
     /** The Sentry event id `captureError` minted for this failure, or null before it lands. */
     supportRef?: string | null
+    reason?: string | null
 }
 
 /**
@@ -31,6 +41,7 @@ export const IdeLaunchFailedModal: FC<IdeLaunchFailedModalProps> = ({
     onClose,
     onRetry,
     supportRef = null,
+    reason = null,
 }) => (
     <AppModal isOpen={isOpen} onClose={onClose} title={MODAL_TITLE}>
         <Stack gap="lg">
@@ -38,6 +49,7 @@ export const IdeLaunchFailedModal: FC<IdeLaunchFailedModalProps> = ({
                 <Text fw={fontWeight.bold} c={semanticColor('error.text')}>
                     {HEADING}
                 </Text>
+                <FailureReason reason={reason} />
                 <Text size="sm">{supportLine(supportRef)}</Text>
             </Stack>
             {/* Full rather than a partial value: the bar reads as a failed run, not as progress. */}

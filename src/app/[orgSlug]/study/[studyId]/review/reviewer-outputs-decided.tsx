@@ -1,13 +1,13 @@
 import { semanticColor } from '@/theme/tokens'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
 import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
+import { latestRunFeedback } from '@/lib/outputs-review'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState, StepNav } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
@@ -15,6 +15,7 @@ import { latestSubmittedJobForStudy, priorCodeRunsForStudy, type LatestJobForStu
 import type { OutputsDecisionFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
+import { PageLayout } from '@/components/page-layout'
 
 type ReviewerOutputsDecidedProps = {
     study: SelectedStudy
@@ -63,8 +64,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />
+            <PageLayout header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}>
                 <ProposalStepHeader
                     stepLabel={REVIEW_OUTPUTS_STEP.label}
                     heading={REVIEW_OUTPUTS_STEP.heading}
@@ -78,10 +78,15 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
                         />
                     }
                 />
-                <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <DecryptAndViewOutputs job={job} priorRuns={priorRuns} isVisible={hasDecryptableOutputs} />
+                <DecryptAndViewOutputs
+                    job={job}
+                    priorRuns={priorRuns}
+                    hasDecryptableOutputs={hasDecryptableOutputs}
+                    latestFeedback={latestRunFeedback(feedbackEntries, job.id)}
+                    feedbackLoadError={feedbackLoadError}
+                />
                 <StepNavigation nav={nav} />
-            </Stack>
+            </PageLayout>
         </Box>
     )
 }

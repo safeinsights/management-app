@@ -252,6 +252,7 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
                 ready: true,
                 failed: false,
                 reason: 'dev workspace ready',
+                failureMessage: null,
                 cursors: { build: null, agent: null },
                 url: `https://coder.dev.example.com/workspace/${studyId}`,
             }

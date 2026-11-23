@@ -56,7 +56,7 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
             <Select
                 id={ORG_SELECT_ID}
                 data-testid="org-select"
-                maw={478}
+                w="50%"
                 key={form.key('orgSlug')}
                 allowDeselect={false}
                 data={options}

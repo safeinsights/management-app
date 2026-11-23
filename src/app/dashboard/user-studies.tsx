@@ -4,6 +4,7 @@ import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { PageHeader } from '@/components/page-header'
+import { PageLayout } from '@/components/page-layout'
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { useSession } from '@/hooks/session'
 import type { UserSession } from '@/lib/types'
@@ -80,12 +81,11 @@ export default function UserStudiesDashboard() {
 
     if (!session) {
         return (
-            <Stack px="md" py="xxl" gap="xxl">
-                <DashboardHeaderSkeleton />
+            <PageLayout px="md" pb="xxl" header={<DashboardHeaderSkeleton />}>
                 <Paper shadow="xs" px="lg" py="xxl">
                     <TableSkeleton paperWrapper={false} />
                 </Paper>
-            </Stack>
+            </PageLayout>
         )
     }
 
@@ -94,8 +94,7 @@ export default function UserStudiesDashboard() {
     // Narrower page and card gutters than other pages give the studies table its 928px at a
     // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack px="md" py="xxl" gap="xxl">
-            <PageHeader title="My studies" />
+        <PageLayout px="md" pb="xxl" header={<PageHeader title="My studies" />}>
             <JoinedOrgBanner />
             <Stack gap="md">
                 <RoleSwitcher isVisible={showToggle} audience={audience} onChange={onAudienceChange} />
@@ -115,6 +114,6 @@ export default function UserStudiesDashboard() {
                     />
                 </Paper>
             </Stack>
-        </Stack>
+        </PageLayout>
     )
 }

@@ -12,6 +12,20 @@ dotenv.config({ path: '.env.test' })
 // The Playwright-owned app instance runs on this port (dev stays on 4000).
 const E2E_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4100'
 
+// ./bin/docker-e2e --host-run / --host-exec: the app runs in this checkout's Docker e2e session, and
+// Playwright and the browsers run on the host.
+const HOST_BROWSER_MODE = !!process.env.E2E_EXTERNAL_SERVER
+
+// Opt-in browsers for host-browser mode only, so CI and Docker mode stay on Chromium.
+const hostBrowserProjects = HOST_BROWSER_MODE
+    ? [
+          { name: 'webkit', testIgnore: '**/a11y.spec.ts', use: { ...devices['Desktop Safari'] } },
+          { name: 'firefox', testIgnore: '**/a11y.spec.ts', use: { ...devices['Desktop Firefox'] } },
+          { name: 'chrome', testIgnore: '**/a11y.spec.ts', use: { ...devices['Desktop Chrome'], channel: 'chrome' } },
+          { name: 'msedge', testIgnore: '**/a11y.spec.ts', use: { ...devices['Desktop Edge'], channel: 'msedge' } },
+      ]
+    : []
+
 const reporters: ReporterDescription[] = []
 if (process.argv.includes('--ui')) {
     reporters.push(['list'])
@@ -94,17 +108,19 @@ export default defineConfig({
     // SeaweedFS + the test DB) is brought up first by `pnpm test:e2e:up`. On CI the app is
     // built+started by bin/ci-server, so no webServer is managed here. The timeout covers a
     // full `next build`; `reuseExistingServer` lets you keep a manually-started server
-    // (./bin/app-test, or ./bin/app-test --no-build) running across iterations.
-    webServer: IS_CI
-        ? []
-        : [
-              {
-                  command: 'pnpm run app:test',
-                  url: E2E_BASE_URL,
-                  reuseExistingServer: true,
-                  timeout: 300_000,
-              },
-          ],
+    // (./bin/app-test, or ./bin/app-test --no-build) running across iterations. In host-browser
+    // mode a down server must fail the run, not start a host app on the .env.test database.
+    webServer:
+        IS_CI || HOST_BROWSER_MODE
+            ? []
+            : [
+                  {
+                      command: 'pnpm run app:test',
+                      url: E2E_BASE_URL,
+                      reuseExistingServer: true,
+                      timeout: 300_000,
+                  },
+              ],
 
     outputDir: 'test-results/e2e',
 
@@ -125,17 +141,7 @@ export default defineConfig({
             testMatch: '**/a11y.spec.ts',
             use: { ...devices['Desktop Chrome'] },
         },
-        // {
-        //     name: 'firefox',
-        //     use: { ...devices['Desktop Firefox'] },
-        //     dependencies: ['global setup'],
-        // },
-
-        // {
-        //     name: 'webkit',
-        //     use: { ...devices['Desktop Safari'] },
-        //     dependencies: ['global setup'],
-        // },
+        ...hostBrowserProjects,
 
         /* Test against mobile viewports. */
         // {
@@ -145,16 +151,6 @@ export default defineConfig({
         // {
         //   name: 'Mobile Safari',
         //   use: { ...devices['iPhone 12'] },
-        // },
-
-        /* Test against branded browsers. */
-        // {
-        //   name: 'Microsoft Edge',
-        //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-        // },
-        // {
-        //   name: 'Google Chrome',
-        //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
         // },
     ],
 })

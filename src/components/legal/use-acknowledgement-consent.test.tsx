@@ -50,14 +50,12 @@ describe('useAcknowledgementConsent', () => {
 
         renderWithProviders(
             <>
-                <RequireStudyAgreement studyId={study.id} />
+                <RequireStudyAgreement studyId={study.id} orgSlug="unused-by-this-test" />
                 <UserStudyAgreements />
             </>,
         )
 
-        await waitFor(() =>
-            expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
-        )
+        await waitFor(() => expect(screen.getByText('You have not acknowledged any Study Agreement yet')).toBeDefined())
 
         await screen.findByRole('dialog')
         await userEvent.click(screen.getByRole('checkbox'))

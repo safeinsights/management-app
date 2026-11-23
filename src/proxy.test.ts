@@ -224,6 +224,27 @@ describe('proxy session marshaling failures', () => {
         expect(res.headers.get('location')).toBeNull()
     })
 
+    // The page builds the session again and reports the failure, so the proxy must not add its own
+    // Sentry events or spend another call against the limit (OTTER-1007).
+    it('neither retries nor reports to Sentry when Clerk rate-limits the marshal', async () => {
+        const { ClerkAPIResponseError } = await import('@clerk/nextjs/errors')
+        const { default: logger } = await import('@/lib/logger')
+        const errorSpy = vi.spyOn(logger, 'error')
+        const getUser = vi
+            .fn()
+            .mockRejectedValue(new ClerkAPIResponseError('Too Many Requests', { data: [], status: 429 }))
+        mockClerkGetUser(getUser)
+
+        const { proxy } = await import('./proxy')
+        const req = new NextRequest('https://app.staging.safeinsights.org/dashboard')
+
+        const res = await (proxy as unknown as ProxyHandler)(authenticatedAuth(), req)
+
+        expect(getUser).toHaveBeenCalledTimes(1)
+        expect(errorSpy).not.toHaveBeenCalled()
+        expect(res.headers.get('location')).toBeNull()
+    })
+
     it('still redirects unauthenticated visitors to signin with a redirect_url', async () => {
         const auth = vi.fn().mockResolvedValue({ userId: null, sessionClaims: null })
 
@@ -239,6 +260,17 @@ describe('proxy session marshaling failures', () => {
         // OTTER-745: this branch is the only one that refuses a session, and the signin page reads the
         // mark rather than inferring the refusal from its own (stale) client state.
         expect(location).toContain(`${BOUNCE_PARAM}=${BOUNCE_VALUE}`)
+    })
+
+    // The signup form links invitees here before they have an account.
+    it.each(['/terms-of-service', '/privacy-notice'])('lets a signed-out visitor read %s', async (path) => {
+        const auth = vi.fn().mockResolvedValue({ userId: null, sessionClaims: null })
+
+        const { proxy } = await import('./proxy')
+        const res = await (proxy as unknown as ProxyHandler)(auth, new NextRequest(`https://app.test${path}`))
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('location')).toBeNull()
     })
 })
 

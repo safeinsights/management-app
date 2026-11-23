@@ -39,6 +39,9 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { writeAgentContext } from '../context-writer'
 import { currentDb } from '@/server/request-context'
+import { normalizeImageRef } from '@/schema/code-env'
+import { ActionFailure } from '@/lib/errors'
+import { describeLaunchFailure } from './launch-failure'
 
 async function generateWorkspaceUrl(user: CoderUser, studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -167,6 +170,7 @@ export async function getCoderWorkspaceLaunchStatus(
         ready: readiness.ready,
         failed,
         reason,
+        failureMessage: failed ? describeLaunchFailure(reason) : null,
         cursors: newCursors,
         url,
     }
@@ -278,7 +282,7 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         },
         {
             name: 'container_image',
-            value: options.containerImage,
+            value: normalizeImageRef(options.containerImage),
         },
         {
             name: 'environment',
@@ -293,11 +297,27 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         rich_parameter_values: richParameterValues,
     }
 
-    return coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), username), {
-        method: 'POST',
-        body: data,
-        errorMessage: 'Failed to create workspace',
-    })
+    try {
+        return await coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), username), {
+            method: 'POST',
+            body: data,
+            errorMessage: 'Failed to create workspace',
+        })
+    } catch (error) {
+        // A 4xx here is Coder refusing the request (e.g. template parameter validation), which the researcher can
+        // act on. 401/403 mean our token or config is off, so those keep the generic text and support ref.
+        if (
+            error instanceof CoderApiError &&
+            error.status >= 400 &&
+            error.status < 500 &&
+            ![401, 403].includes(error.status)
+        ) {
+            throw new ActionFailure(
+                describeLaunchFailure(error.responseText) ?? 'Coder refused to create the workspace',
+            )
+        }
+        throw error
+    }
 }
 
 export async function createUserAndWorkspace(
@@ -311,6 +331,7 @@ export async function createUserAndWorkspace(
         }
     } catch (error) {
         logger.error('Error in createUserAndWorkspace:', error)
+        if (error instanceof ActionFailure) throw error
         throw new Error(
             `Failed to create user and workspace: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )

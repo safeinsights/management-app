@@ -108,6 +108,8 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     const onGenerateKeys = async () => {
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
         const privateKeyLines = (privateKeyString.match(/.{1,112}/g) || []).join('\n')
+        // Not a stored secret: PEM armor around the key just generated in the browser.
+        // nosemgrep: secret-private-key
         const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyLines}\n-----END PRIVATE KEY-----`
 
         setKeys({ binaryPublicKey: exportedPublicKey, privateKey: privateKeyPem, fingerprint })

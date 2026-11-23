@@ -10,7 +10,7 @@ test.describe('recovery code sign in UI', async () => {
         await e2eSignOut(page)
 
         await page.getByLabel('email').fill(props.identifier)
-        await page.getByLabel('password').fill(props.password)
+        await page.getByRole('textbox', { name: 'Password' }).fill(props.password)
         await page.getByRole('button', { name: 'login' }).click()
 
         await page.getByRole('heading', { name: /multi-factor authentication required/i }).waitFor({ state: 'visible' })
@@ -33,7 +33,7 @@ test.describe('recovery code sign in UI', async () => {
         await e2eSignOut(page)
 
         await page.getByLabel('email').fill(props.identifier)
-        await page.getByLabel('password').fill(props.password)
+        await page.getByRole('textbox', { name: 'Password' }).fill(props.password)
         await page.getByRole('button', { name: 'login' }).click()
 
         await page.getByRole('heading', { name: /multi-factor authentication required/i }).waitFor({ state: 'visible' })

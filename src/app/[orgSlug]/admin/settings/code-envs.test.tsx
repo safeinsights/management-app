@@ -202,7 +202,7 @@ describe('CodeEnvs', async () => {
             await openEdit('Only R')
 
             expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeDisabled()
-            expect(screen.getByRole('textbox', { name: /Language/i })).toBeDisabled()
+            expect(screen.getByRole('combobox', { name: /Language/i })).toBeDisabled()
             expect(screen.getByText(/so it can't be made a testing image/)).toBeInTheDocument()
         })
 
@@ -213,7 +213,7 @@ describe('CodeEnvs', async () => {
             await openEdit('R Image 1')
 
             expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeEnabled()
-            expect(screen.getByRole('textbox', { name: /Language/i })).toBeEnabled()
+            expect(screen.getByRole('combobox', { name: /Language/i })).toBeEnabled()
         })
     })
 
@@ -350,7 +350,7 @@ describe('CodeEnvs', async () => {
         expect(await screen.findByRole('button', { name: 'Delete Linked R' })).toHaveAttribute('data-disabled')
 
         await userEvent.click(await screen.findByRole('button', { name: /delete data source/i }))
-        await userEvent.click(await screen.findByRole('button', { name: /yes/i, hidden: true }))
+        await userEvent.click(await screen.findByRole('button', { name: /yes/i }))
 
         await waitFor(() => {
             expect(screen.getByRole('button', { name: 'Delete Linked R' })).not.toHaveAttribute('data-disabled')
@@ -369,8 +369,8 @@ describe('CodeEnvs', async () => {
         )
 
         fireEvent.click(await screen.findByRole('button', { name: /edit linked r/i }))
-        await userEvent.click(await screen.findByRole('textbox', { name: /Data Sources/i }))
-        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source', hidden: true }))
+        await userEvent.click(await screen.findByRole('combobox', { name: /Data Sources/i }))
+        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source' }))
         await userEvent.click(screen.getByRole('button', { name: /Update Code Environment/i }))
 
         await waitFor(() => {
@@ -412,6 +412,8 @@ describe('CodeEnvs', async () => {
             expect(screen.getByText('Image with Env Vars')).toBeInTheDocument()
             expect(screen.getByText('Image without Env Vars')).toBeInTheDocument()
         })
+        await userEvent.click(screen.getByRole('button', { name: 'Details for Image with Env Vars' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Details for Image without Env Vars' }))
 
         expect(screen.getAllByText('Env Vars').length).toBeGreaterThanOrEqual(1)
         expect(screen.getByText('VAR1=value1')).toBeInTheDocument()

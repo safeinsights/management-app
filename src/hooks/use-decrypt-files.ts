@@ -90,6 +90,10 @@ async function proveKey(
     }
 }
 
+export async function fingerprintOfPrivateKey(pem: string): Promise<string> {
+    return fingerprintPublicKeyFromPrivateKey(await privateKeyFromBuffer(pemToArrayBuffer(pem)))
+}
+
 export async function decryptJobFiles(
     encryptedFiles: EncryptedJobFile[],
     privateKey: string,
@@ -99,8 +103,7 @@ export async function decryptJobFiles(
     let privateKeyBuffer: ArrayBuffer
     try {
         privateKeyBuffer = pemToArrayBuffer(privateKey)
-        const key = await privateKeyFromBuffer(privateKeyBuffer)
-        fingerprint = await fingerprintPublicKeyFromPrivateKey(key)
+        fingerprint = await fingerprintOfPrivateKey(privateKey)
     } catch (err) {
         throw new KeyParseError('Invalid key data, check that key was copied successfully', { cause: err })
     }
@@ -133,10 +136,12 @@ export function useDecryptFiles(options: {
     encryptedFiles: EncryptedJobFile[] | undefined
     /** The job these archives were fetched for. Checked against what each archive claims. */
     jobId: string
+    /** Fetches the archives on submit instead, for archives that depend on the key entered. */
+    loadEncryptedFiles?: (privateKey: string) => Promise<EncryptedJobFile[]>
     onSuccess: (files: JobFileInfo[], privateKey: string) => void
     onError?: (err: Error) => void
 }) {
-    const { encryptedFiles, jobId, onSuccess, onError } = options
+    const { encryptedFiles, jobId, loadEncryptedFiles, onSuccess, onError } = options
 
     const form = useForm({
         mode: 'uncontrolled' as const,
@@ -167,8 +172,9 @@ export function useDecryptFiles(options: {
         // in the page after the form has gone.
         gcTime: 0,
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
-            if (!encryptedFiles) return []
-            return decryptJobFiles(encryptedFiles, privateKey, jobId)
+            const files = loadEncryptedFiles ? await loadEncryptedFiles(privateKey) : encryptedFiles
+            if (!files) return []
+            return decryptJobFiles(files, privateKey, jobId)
         },
         onSuccess: (files, { privateKey }) => onSuccess(files, privateKey),
         onError: handleError,

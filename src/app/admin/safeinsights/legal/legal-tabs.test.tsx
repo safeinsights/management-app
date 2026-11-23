@@ -12,16 +12,18 @@ vi.mock('@/server/aws', async (importOriginal) => {
 })
 
 describe('LegalTabs', () => {
-    it('opens on Terms of Service and switches to the study agreement panel', async () => {
+    it('opens on Terms of Service and switches to the Study Agreement panel', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
 
         renderWithProviders(<LegalTabs />)
 
         expect(await screen.findByRole('button', { name: 'Upload' })).toBeDefined()
 
-        fireEvent.click(screen.getByRole('tab', { name: 'Study Agreements' }))
+        fireEvent.click(screen.getByRole('tab', { name: 'Study Agreement' }))
 
-        await waitFor(() => expect(screen.getByRole('button', { name: 'Upload signed study agreement' })).toBeDefined())
+        await waitFor(() =>
+            expect(screen.getByRole('button', { name: 'Upload a signed Study Agreement' })).toBeDefined(),
+        )
         expect(screen.queryByRole('button', { name: 'Upload' })).toBeNull()
     })
 })

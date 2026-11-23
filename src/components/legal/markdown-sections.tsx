@@ -7,34 +7,17 @@ import type { ResolvedLegalDocument } from '@/schema/legal-document'
 import { LegalMarkdownContent } from './markdown-content'
 import { fontWeight } from '@/theme/tokens'
 
-// Every place a user is asked to agree names the document, then renders it in full. Takes the
-// scope-neutral base; a pdf has no inline view (it's the link in the sentence), so nothing renders here.
-export const LegalMarkdownSection: FC<{ document: ResolvedLegalDocument; labelSize?: string }> = ({
-    document,
-    labelSize,
-}) => {
+// The acknowledgement modal names the document, then renders it in full. A pdf has no inline view
+// (it's the link in the sentence), so nothing renders here.
+export const LegalMarkdownSection: FC<{ document: ResolvedLegalDocument }> = ({ document }) => {
     if (document.format !== 'markdown') return null
 
     const label = legalDocumentTypeLabels[document.type]
 
     return (
         <Stack gap="xs">
-            <Text fw={fontWeight.semibold} fz={labelSize}>
-                {label}
-            </Text>
+            <Text fw={fontWeight.semibold}>{label}</Text>
             <LegalMarkdownContent content={document.content} label={label} />
         </Stack>
     )
 }
-
-// Signup agrees to everything published at once; the app-wide gate asks one document at a time.
-export const LegalMarkdownSections: FC<{ documents: ResolvedLegalDocument[]; labelSize?: string }> = ({
-    documents,
-    labelSize,
-}) => (
-    <Stack gap="md">
-        {documents.map((document) => (
-            <LegalMarkdownSection key={document.versionId} document={document} labelSize={labelSize} />
-        ))}
-    </Stack>
-)

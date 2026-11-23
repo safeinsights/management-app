@@ -51,9 +51,11 @@ const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
         }),
     )
 
-const unlock = async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
-    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+// Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+const unlock = async (root: HTMLElement) => {
+    const privateKey = await readTestSupportFile('private_key.pem')
+    fireEvent.change(within(root).getByRole('textbox'), { target: { value: privateKey } })
+    fireEvent.click(within(root).getByRole('button', { name: 'View files' }))
 }
 
 const setupWithArtifact = async (priorRuns: PriorCodeRunOptions[] = []) => {
@@ -81,7 +83,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText(
                 'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
@@ -100,14 +102,14 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(alert).toHaveTextContent('Enter your security key below to access the outputs and see what went wrong.')
         expect(alert).not.toHaveTextContent('The code ran in the secure enclave')
         expect(alert).not.toHaveTextContent(NO_ERROR_LOG_TEXT)
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
     })
 
     it('hides the outputs table, decision section and submit until a key validates', async () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
         expect(screen.queryByTestId('outputs-submit-decision')).toBeNull()
     })
@@ -118,16 +120,17 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
             files: [{ name: 'run.log', content: 'boom' }],
         })
-        await renderScreen({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
+        const { container } = await renderScreen({ study, raw }, org.slug)
+        const view = within(container)
+        await view.findByRole('button', { name: 'View files' })
 
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
-        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+        fireEvent.change(view.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
+        fireEvent.click(view.getByRole('button', { name: 'View files' }))
 
         expect(
             await screen.findByText('Invalid key. Check that you copied the full key and enter it again.'),
         ).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
     })
 
     // OTTER-675: an artifact exists but the fetch returns nothing (no registered public key). A
@@ -139,13 +142,13 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
             files: [{ name: 'run.log', content: 'boom' }],
         })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
-        await renderScreen({ study, raw }, org.slug)
+        const { container } = await renderScreen({ study, raw }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
 
-        await unlock()
+        await unlock(container)
 
         expect(await screen.findByText('No encrypted outputs available to decrypt.')).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
@@ -225,7 +228,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('There is no error log for this run.')
         expect(alert).toHaveTextContent('Enter your security key below')
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
@@ -300,15 +303,16 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
+        expect(screen.queryByTestId('code-run-card')).toBeNull()
     })
 
     it('lets the reviewer record a decision without a key', async () => {
         const { org, study, raw } = await setupErrored()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
-        expect(screen.getByTestId('outputs-submit-decision')).toBeEnabled()
+        const decision = screen.getByTestId('outputs-decision-section')
+        expect(within(decision).getByTestId('outputs-submit-decision')).toBeEnabled()
     })
 
     it('offers only share-feedback-only, with sharing disabled and explained', async () => {
@@ -369,7 +373,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
             }),
         )
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
@@ -385,20 +389,35 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     const setupDecrypted = async (files: { name: string; content: string }[]) => {
         const { org, study, job, raw } = await setupErrored()
         await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: files })
-        await renderScreen({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
-        await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
-        return { org, study, job }
+        const { container } = await renderScreen({ study, raw }, org.slug)
+        await within(container).findByRole('button', { name: 'View files' })
+        await unlock(container)
+        await waitFor(() => expect(latestRunOutputs(container)).toBeInTheDocument())
+        return { org, study, job, container }
     }
 
     it('swaps the key form for the outputs table and decision section', async () => {
         await setupDecrypted([{ name: 'run.log', content: 'boom' }])
 
         expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
-        expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument()
+        expect(latestRunOutputs()).toBeInTheDocument()
         expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
         expect(screen.getByTestId('outputs-submit-decision')).toBeInTheDocument()
+    })
+
+    // OTTER-1062: Code run card with its header, then the Decision card holding Submit decision,
+    // then only Previous step.
+    it('keeps the Code run header and puts Submit decision in the Decision card', async () => {
+        await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+
+        const card = screen.getByTestId('code-run-card')
+        expect(within(card).getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
+        const decision = screen.getByTestId('outputs-decision-section')
+        expect(within(decision).getByTestId('outputs-submit-decision')).toBeInTheDocument()
+        const nav = screen.getByTestId('step-navigation')
+        expect(within(nav).queryByTestId('outputs-submit-decision')).toBeNull()
+        expect(card.compareDocumentPosition(decision) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(decision.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('replaces the errored banner with the review-before-sharing warning', async () => {
@@ -461,10 +480,10 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     })
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
-        const { study } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+        const { study, container } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
         const labName = study.submittingLabName
 
-        fireEvent.click(screen.getByTestId('outputs-submit-decision'))
+        fireEvent.click(within(container).getByTestId('outputs-submit-decision'))
 
         expect(await screen.findByText(`Enter your feedback for ${labName} before submitting.`)).toBeInTheDocument()
         expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
@@ -472,10 +491,11 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     })
 
     it('records a view against the file when its name is clicked', async () => {
-        const { job } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
-        await waitFor(() => expect(screen.getByText('No activity yet')).toBeInTheDocument())
+        const { job, container } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+        const view = within(container)
+        await waitFor(() => expect(view.getByText('No activity yet')).toBeInTheDocument())
 
-        fireEvent.click(screen.getByRole('button', { name: 'run.log' }))
+        fireEvent.click(view.getByRole('button', { name: 'run.log' }))
 
         // The cell is refetched when the recording settles, so the row is already there after this.
         await waitFor(() => expect(screen.queryByText('No activity yet')).toBeNull())
@@ -542,10 +562,10 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
+        const { container } = await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
-        await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await unlock(container)
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
 
         expect(screen.getByRole('button', { name: 'latest.log' })).toBeInTheDocument()
@@ -553,3 +573,7 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         expect(screen.queryByRole('button', { name: 'earlier.log' })).toBeNull()
     })
 })
+
+// History rows render their own outputs section, so look inside the latest run's card.
+const latestRunOutputs = (root: HTMLElement = document.body) =>
+    within(within(root).getByTestId('code-run-card')).getByTestId('code-run-outputs')

@@ -225,7 +225,33 @@ describe('CodeReview', () => {
             expect(section).toHaveTextContent('Debshilla Basu Mallick')
         })
 
-        it('positions Feedback and notes between STEP 2 and Submission details', async () => {
+        it('shows only the latest 2 Feedback and notes entries until View all is clicked', async () => {
+            const user = userEvent.setup()
+            const fourEntries = [
+                buildEntry({ ...resubmissionNote, id: 'note-v3', version: 3 }),
+                buildEntry({ ...reviewerEntry, id: 'reviewer-v2', version: 2 }),
+                ...resubmissionEntries,
+            ]
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: fourEntries,
+                    nav: {},
+                }),
+            )
+
+            const section = screen.getByTestId('feedback-and-notes-section')
+            expect(section).toHaveTextContent('Resubmission note (v3.0)')
+            expect(section).not.toHaveTextContent('Resubmission note (v2.0)')
+
+            await user.click(screen.getByRole('button', { name: 'View all notes and feedback' }))
+
+            expect(section).toHaveTextContent('Resubmission note (v2.0)')
+            expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
+        })
+
+        it('positions Feedback and notes between Submission details and Code evaluation', async () => {
             renderWithProviders(
                 await CodeReview({
                     orgSlug: ORG_SLUG,
@@ -239,8 +265,8 @@ describe('CodeReview', () => {
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
             const evaluation = screen.getByTestId('code-evaluation-section')
-            expect(stepHeader.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-            expect(feedback.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(stepHeader.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
             expect(feedback.compareDocumentPosition(evaluation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 

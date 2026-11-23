@@ -1,8 +1,12 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+    type Mock,
     insertTestJobStatus,
     fireEvent,
-    hydrateServerHtml,
     insertTestStudyJobData,
     mockSessionWithTestData,
     readTestSupportFile,
@@ -12,12 +16,12 @@ import {
 } from '@/tests/unit.helpers'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
-import { CodeRunKeyForm } from './code-run-key-form'
+import { CodeRunKeyFields } from '@/components/study/code-run-key-form'
 
 const DESCRIPTION =
     'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.'
 
-describe('CodeRunKeyForm', () => {
+describe('CodeRunKeyFields', () => {
     let job: NonNullable<LatestJobForStudy>
     let onDecrypted: Mock
 
@@ -34,48 +38,24 @@ describe('CodeRunKeyForm', () => {
         })
     })
 
-    it('titles the card with the date the run finished', async () => {
-        renderWithProviders(<CodeRunKeyForm job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
-
-        expect(await screen.findByRole('heading', { name: 'Code run • Mar 05, 2026' })).toBeInTheDocument()
-        expect(screen.queryByRole('heading', { name: /security key/i })).not.toBeInTheDocument()
-    })
-
     it('shows the output files title, required key label and caller copy instead of the sign-up copy', async () => {
-        renderWithProviders(<CodeRunKeyForm job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
+        renderWithProviders(
+            <CodeRunKeyFields job={job} type="reviewer" description={DESCRIPTION} onDecrypted={onDecrypted} />,
+        )
 
         await screen.findByRole('button', { name: 'View files' })
         expect(screen.getByText('Output files')).toBeInTheDocument()
         expect(screen.getByText(/^Security key/)).toContainElement(screen.getByLabelText('required'))
         expect(screen.getByText(DESCRIPTION)).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /security key/i })).not.toBeInTheDocument()
         expect(screen.queryByText(/It was issued to you during sign-up/)).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument()
     })
 
-    // Tests run in America/Chicago, where a run ending after UTC midnight is still the day before.
-    it('hydrates without a mismatch when the run ended after UTC midnight', async () => {
-        const lateRun = {
-            ...job,
-            statusChanges: [{ status: 'JOB-ERRORED' as const, createdAt: '2026-09-24T01:30:00Z' }],
-        }
-        const { recoverableErrors } = hydrateServerHtml(
-            <CodeRunKeyForm job={lateRun} description={DESCRIPTION} onDecrypted={onDecrypted} />,
-        )
-
-        expect(await screen.findByRole('heading', { name: 'Code run • Sep 23, 2026' })).toBeInTheDocument()
-        expect(recoverableErrors).toEqual([])
-    })
-
-    it('falls back to a dash when the run has no finish time', async () => {
-        renderWithProviders(
-            <CodeRunKeyForm job={{ ...job, statusChanges: [] }} description={DESCRIPTION} onDecrypted={onDecrypted} />,
-        )
-
-        expect(await screen.findByRole('heading', { name: 'Code run • —' })).toBeInTheDocument()
-    })
-
     it('keeps the empty-key error from the shared key form', async () => {
-        renderWithProviders(<CodeRunKeyForm job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
+        renderWithProviders(
+            <CodeRunKeyFields job={job} type="reviewer" description={DESCRIPTION} onDecrypted={onDecrypted} />,
+        )
 
         fireEvent.click(await screen.findByRole('button', { name: 'View files' }))
 
@@ -84,7 +64,9 @@ describe('CodeRunKeyForm', () => {
     })
 
     it('hands the decrypted files to the caller on a valid key', async () => {
-        renderWithProviders(<CodeRunKeyForm job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
+        renderWithProviders(
+            <CodeRunKeyFields job={job} type="reviewer" description={DESCRIPTION} onDecrypted={onDecrypted} />,
+        )
 
         await screen.findByRole('button', { name: 'View files' })
         fireEvent.change(screen.getByRole('textbox'), {
@@ -94,5 +76,38 @@ describe('CodeRunKeyForm', () => {
 
         await waitFor(() => expect(onDecrypted).toHaveBeenCalledOnce())
         expect(onDecrypted.mock.calls[0][0]).toEqual([expect.objectContaining({ path: 'run.log' })])
+    })
+
+    // Researchers open the outputs through the keys re-wrapped for them, not the zip manifest.
+    it('decrypts with the researcher key set when given the researcher type', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
+        const { study, job: dbJob } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await seedEncryptedArtifact(dbJob.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+            sharedWith: user.id,
+        })
+        const researcherJob = (await latestJobForStudy(study.id))!
+        renderWithProviders(
+            <CodeRunKeyFields
+                job={researcherJob}
+                type="researcher"
+                description={DESCRIPTION}
+                onDecrypted={onDecrypted}
+            />,
+        )
+
+        await screen.findByRole('button', { name: 'View files' })
+        fireEvent.change(screen.getByRole('textbox'), {
+            target: { value: await readTestSupportFile('private_key.pem') },
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+
+        await waitFor(() => expect(onDecrypted).toHaveBeenCalledOnce())
+        expect(onDecrypted.mock.calls[0][0]).toEqual([expect.objectContaining({ path: 'summary.csv' })])
     })
 })

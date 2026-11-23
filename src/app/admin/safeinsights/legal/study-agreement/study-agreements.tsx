@@ -2,7 +2,7 @@
 
 import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentCollectionLabels, legalDocumentQueryKeys } from '@/schema/legal-document'
+import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchStudyAgreementsAction } from '@/server/actions/study-agreement.actions'
 import { AppModal } from '@/components/modals/app-modal'
 import { Button, Flex, Stack, Title } from '@mantine/core'
@@ -54,13 +54,13 @@ export const StudyAgreements: FC = () => {
     return (
         <Stack>
             <Flex justify="space-between" align="center">
-                <Title order={2}>{legalDocumentCollectionLabels.SLA}</Title>
-                <Button onClick={openUpload}>Upload signed study agreement</Button>
+                <Title order={2}>{legalDocumentTypeLabels.SLA}</Title>
+                <Button onClick={openUpload}>Upload a signed {legalDocumentTypeLabels.SLA}</Button>
             </Flex>
             <AppModal
                 isOpen={uploadOpened}
                 onClose={closeUpload}
-                title="Upload a signed study agreement"
+                title={`Upload a signed ${legalDocumentTypeLabels.SLA}`}
                 closeOnClickOutside={false}
             >
                 <UploadStudyAgreementForm onCompleteAction={closeUpload} />
@@ -90,7 +90,7 @@ export const StudyAgreements: FC = () => {
                 pinLastColumn
                 fetching={isLoading}
                 idAccessor="legalDocumentId"
-                noRecordsText="No study agreements have been uploaded yet"
+                noRecordsText={`No ${legalDocumentTypeLabels.SLA} has been uploaded yet`}
                 records={agreements}
                 columns={columns}
             />
