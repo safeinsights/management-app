@@ -1,4 +1,5 @@
 import { clerkMiddleware } from '@clerk/nextjs/server'
+import { isClerkAPIResponseError } from '@clerk/nextjs/errors'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
 import { Routes } from '@/lib/routes'
@@ -33,6 +34,10 @@ const ANON_ROUTES: Array<string> = [
     Routes.termsOfService,
     Routes.privacyNotice,
 ]
+
+function isClerkRateLimit(error: unknown): boolean {
+    return isClerkAPIResponseError(error) && error.status === 429
+}
 
 function getOrgFromSlug(session: UserSession, orgSlug: string): Org | null {
     return Object.values(session.orgs).find((org) => org.slug === orgSlug) || null
@@ -136,14 +141,20 @@ export const proxy = clerkMiddleware(async (auth, req) => {
     try {
         session = await marshalSession(clerkUserId, sessionClaims)
     } catch (error) {
-        log.error('Failed to marshal session:', error)
-        // marshalSession only throws for a user Clerk still considers authenticated, so stale
-        // metadata is recoverable: regenerate rather than bouncing them to signin.
-        try {
-            session = await marshalSession(clerkUserId, sessionClaims, { forceUpdate: true })
-        } catch (retryError) {
-            log.error('Failed to marshal session after forced metadata re-sync:', retryError)
-            // session stays null; the branch below falls back to BLANK_SESSION
+        if (isClerkRateLimit(error)) {
+            // The page builds the session again and reports the failure once; retrying now only
+            // spends another call against the limit (OTTER-1007).
+            log.info('Clerk rate-limited the session marshal: %O', error)
+        } else {
+            log.error('Failed to marshal session:', error)
+            // marshalSession only throws for a user Clerk still considers authenticated, so stale
+            // metadata is recoverable: regenerate rather than bouncing them to signin.
+            try {
+                session = await marshalSession(clerkUserId, sessionClaims, { forceUpdate: true })
+            } catch (retryError) {
+                log.error('Failed to marshal session after forced metadata re-sync:', retryError)
+                // session stays null; the branch below falls back to BLANK_SESSION
+            }
         }
     }
 
