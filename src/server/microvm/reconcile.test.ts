@@ -94,6 +94,13 @@ describe('reconcileImages', () => {
         expect(triggerMicrovmImageBuild).not.toHaveBeenCalled()
     })
 
+    // Two warm instances, one with the settings from before a layer deploy, would otherwise each
+    // rebuild what the other built.
+    it('reads the IDE settings fresh', async () => {
+        await reconcileImages(db)
+        expect(getMicrovmConfig).toHaveBeenCalledWith({ fresh: true })
+    })
+
     it('builds a url in use that has no image', async () => {
         const { url } = await envWithUrl()
         expect((await reconcileImages(db)).started).toBe(1)

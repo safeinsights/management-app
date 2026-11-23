@@ -410,8 +410,9 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                         }),
                     )
                 }
-                await requestImageBuild(db, updatedCodeEnv.url)
             }
+            // On every save, not only a url change: a save is how an admin retries a failed image build.
+            await requestImageBuild(db, updatedCodeEnv.url)
 
             return updatedCodeEnv
         },

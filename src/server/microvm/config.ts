@@ -32,8 +32,11 @@ const loadConfig = async (): Promise<MicrovmConfig> => {
 // Set by iac's ManagementAppStack where the research IDE runs in Lambda MicroVMs instead of Coder.
 export const isMicrovmBackend = () => !CODER_DISABLED && env.IDE_BACKEND === 'microvm'
 
-export function getMicrovmConfig(): Promise<MicrovmConfig | null> {
+// `fresh` is for the callers that act on layerHash: a deploy changes it while this instance stays warm,
+// and a build or a reconcile on the old value would undo what an instance with the new one did.
+export function getMicrovmConfig(opts: { fresh?: boolean } = {}): Promise<MicrovmConfig | null> {
     if (!isMicrovmBackend()) return Promise.resolve(null)
+    if (opts.fresh) configPromise = undefined
     // A failed load is not cached, so the next request retries instead of falling back to Coder.
     configPromise ??= loadConfig().catch((e) => {
         configPromise = undefined

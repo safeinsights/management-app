@@ -55,7 +55,7 @@ async function deleteImage(config: MicrovmConfig, url: string): Promise<void> {
  */
 export async function reconcileImages(db: DBExecutor) {
     const result = { timedOut: 0, started: 0, deleted: 0 }
-    const config = await getMicrovmConfig()
+    const config = await getMicrovmConfig({ fresh: true })
     if (!config) return result
 
     const stale = await db

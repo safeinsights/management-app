@@ -83,7 +83,10 @@ export async function startImageBuild(
     }
 }
 
-/** Called when a code environment is saved with a new url. */
+/**
+ * Called on every save of a code environment. It starts a build for a url that has no image, whose
+ * image is on an older IDE layer, or whose last build failed: a save is the admin's way to retry.
+ */
 export async function requestImageBuild(db: DBExecutor, url: string): Promise<void> {
     if (SIMULATE_CODE_BUILD) {
         await db
@@ -100,7 +103,15 @@ export async function requestImageBuild(db: DBExecutor, url: string): Promise<vo
             .execute()
         return
     }
-    const config = await getMicrovmConfig()
+    let config: MicrovmConfig | null
+    try {
+        config = await getMicrovmConfig({ fresh: true })
+    } catch (err) {
+        // The save has already made the code environment's database and files; the reconcile builds
+        // the image on its next pass.
+        logger.error('Failed to read the MicroVM IDE settings for an image build', err, { url })
+        return
+    }
     if (!config) return
     await startImageBuild(db, url, config, { retryFailed: true })
 }

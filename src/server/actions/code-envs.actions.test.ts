@@ -1509,8 +1509,9 @@ describe('research IDE image', () => {
         expect(vi.mocked(requestImageBuild).mock.calls[0][1]).toBe(url)
     })
 
-    // The image is the url's, so an edit to the name or the environment variables builds nothing.
-    it('does not ask for an image when the url stays the same', async () => {
+    // A save is the admin's only way to retry a failed build. requestImageBuild starts nothing for a
+    // url whose image is built or building, so asking on every save costs one query.
+    it('asks again on a save that keeps the url, so that a failed build can be retried', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: true })
         vi.mocked(requestImageBuild).mockClear()
@@ -1519,7 +1520,8 @@ describe('research IDE image', () => {
             await updateOrgCodeEnvAction({ ...fields, orgSlug: org.slug, codeEnvId: codeEnv.id, url: codeEnv.url }),
         )
 
-        expect(requestImageBuild).not.toHaveBeenCalled()
+        expect(requestImageBuild).toHaveBeenCalledTimes(1)
+        expect(vi.mocked(requestImageBuild).mock.calls[0][1]).toBe(codeEnv.url)
     })
 
     it('lists each code environment with the status of the image for its url', async () => {

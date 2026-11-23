@@ -44,6 +44,16 @@ describe('the code environment a new study takes', () => {
         expect((await selectCodeEnvSnapshot(db, study.id).executeTakeFirst())?.id).toBe(building.id)
     })
 
+    // Job approval and the study's frozen copy read this too, so it must never come back empty
+    // because an image is still building or failed.
+    it('is the newest when no environment has a usable image', async () => {
+        vi.stubEnv('IDE_BACKEND', 'microvm')
+        const { org, study } = await insertTestStudyOnly()
+        const only = await insertTestCodeEnv({ orgId: org.id, language: 'R', url: newUrl() })
+        await db.insertInto('microvmImage').values({ url: only.url, status: 'IMAGE-RUNNING' }).execute()
+        expect((await selectCodeEnvSnapshot(db, study.id).executeTakeFirst())?.id).toBe(only.id)
+    })
+
     // The rule picks a default. It must not take a code environment away from a study that has one.
     it('does not change a study that already froze a code environment', async () => {
         vi.stubEnv('IDE_BACKEND', 'microvm')

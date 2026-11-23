@@ -59,12 +59,19 @@ export const POST = createWebhookHandler({
         // The version that was built before stays, so launches continue on it.
         await db
             .insertInto('microvmImage')
-            .values({ url: body.url, status: 'IMAGE-FAILED', error: body.error ?? 'BUILD_ERROR' })
+            .values({
+                url: body.url,
+                status: 'IMAGE-FAILED',
+                error: body.error ?? 'BUILD_ERROR',
+                attemptedLayerHash: body.layerHash ?? null,
+            })
             .onConflict((oc) =>
                 oc.column('url').doUpdateSet((eb) => ({
                     status: 'IMAGE-FAILED',
                     // The buildspec's fallback repeats the failure without the code the script sent.
                     error: body.error ?? eb.fn.coalesce('microvmImage.error', eb.val('BUILD_ERROR')),
+                    // So that the reconcile does not start this build again on the same layer.
+                    ...(body.layerHash ? { attemptedLayerHash: body.layerHash } : {}),
                     updatedAt,
                 })),
             )

@@ -96,3 +96,12 @@ test('an IMAGE-FAILED with no code at all is recorded as a build error', async (
     await post({ url, status: 'IMAGE-FAILED' })
     expect((await rowFor(url)).error).toBe('BUILD_ERROR')
 })
+
+// A build whose row was lost (the save that claimed it rolled back) must not be started again by
+// every reconcile pass once it has failed on this layer.
+test('IMAGE-FAILED records the layer that was attempted', async () => {
+    const url = newUrl()
+    await post({ url, status: 'IMAGE-RUNNING' })
+    await post({ url, status: 'IMAGE-FAILED', layerHash: 'layer-2', error: 'BUILD_ERROR' })
+    expect((await rowFor(url)).attemptedLayerHash).toBe('layer-2')
+})
