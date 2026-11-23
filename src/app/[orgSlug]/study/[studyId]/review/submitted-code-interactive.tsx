@@ -274,7 +274,7 @@ function CollapsibleRest({
             <Divider />
             <Stack gap={0}>
                 {expandToggle}
-                <Collapse expanded={expanded} keepMounted>
+                <Collapse expanded={expanded}>
                     <Stack gap="xl">
                         <DividedBlocks blocks={blocks} />
                     </Stack>
