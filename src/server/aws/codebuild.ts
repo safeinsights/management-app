@@ -103,3 +103,28 @@ export async function triggerScanForCodeEnv(info: { codeEnvId: string; imageUrl:
     )
     if (!result.build) throw new Error(`failed to start scan. requestID: ${result.$metadata.requestId}`)
 }
+
+export type MicrovmImageBuildInfo = { url: string; urlHash: string; layerHash: string; layerSourceUri: string }
+
+// The build returns these payloads with its result merged in, so `url` and `layerHash` travel to the
+// build and back: the webhook needs no state of its own to know which image and layer it is told of.
+export async function buildTriggerMicrovmImageCommandInput(info: MicrovmImageBuildInfo) {
+    return {
+        projectName: env.MICROVM_IMAGE_PROJECT_NAME || `MgmntAppMicrovmImage-${ENVIRONMENT_ID}`,
+        environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/microvm-image-results', {
+            ON_START_PAYLOAD: { url: info.url, status: 'IMAGE-RUNNING' },
+            ON_SUCCESS_PAYLOAD: { url: info.url, status: 'IMAGE-READY', layerHash: info.layerHash },
+            ON_FAILURE_PAYLOAD: { url: info.url, status: 'IMAGE-FAILED', layerHash: info.layerHash },
+            DOCKER_IMAGE_URL: info.url,
+            URL_HASH: info.urlHash,
+            LAYER_HASH: info.layerHash,
+            LAYER_SOURCE_URI: info.layerSourceUri,
+        }),
+    }
+}
+
+export async function triggerMicrovmImageBuild(info: MicrovmImageBuildInfo) {
+    const codebuild = new CodeBuildClient({})
+    const result = await codebuild.send(new StartBuildCommand(await buildTriggerMicrovmImageCommandInput(info)))
+    if (!result.build) throw new Error(`failed to start image build. requestID: ${result.$metadata.requestId}`)
+}

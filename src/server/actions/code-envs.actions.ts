@@ -26,6 +26,7 @@ import {
     toPgDbName,
 } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
+import { requestImageBuild } from '@/server/microvm/images'
 import { sanitizeFileName } from '@/lib/utils'
 import { dockerImageRefSchema, identifierRegex } from '@/schema/code-env'
 import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
@@ -229,6 +230,9 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
             )
         }
 
+        // The study runner, where its code runs in the IDE, starts from an image built from this url; see src/server/microvm/images.ts.
+        await requestImageBuild(db, newCodeEnv.url)
+
         return newCodeEnv
     })
 
@@ -407,6 +411,8 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                     )
                 }
             }
+            // On every save, not only a url change: a save is how an admin retries a failed image build.
+            await requestImageBuild(db, updatedCodeEnv.url)
 
             return updatedCodeEnv
         },
@@ -441,6 +447,16 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
                     .orderBy('codeScan.createdAt', 'desc')
                     .limit(1)
                     .as('latestScanResults'),
+                eb
+                    .selectFrom('microvmImage')
+                    .select('microvmImage.status')
+                    .whereRef('microvmImage.url', '=', 'orgCodeEnv.url')
+                    .as('imageStatus'),
+                eb
+                    .selectFrom('microvmImage')
+                    .select('microvmImage.error')
+                    .whereRef('microvmImage.url', '=', 'orgCodeEnv.url')
+                    .as('imageError'),
                 jsonArrayFrom(
                     eb
                         .selectFrom('orgDataSourceCodeEnv')

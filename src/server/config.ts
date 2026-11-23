@@ -26,6 +26,9 @@ const envSchema = z.object({
     CODE_BUILD_REPOSITORY_DOMAIN: z.string().optional(),
     CONTAINERIZER_PROJECT_NAME: z.string().optional(),
     SCANNER_PROJECT_NAME: z.string().optional(),
+    MICROVM_IMAGE_PROJECT_NAME: z.string().optional(),
+    // Set to 'microvm' by iac where the research IDE runs in Lambda MicroVMs instead of Coder.
+    IDE_BACKEND: z.string().optional(),
     CODEBUILD_WEBHOOK_SECRET: z.string().optional(),
     CODER_API_ENDPOINT: z.string().optional(),
     CODER_TOKEN: z.string().optional(),

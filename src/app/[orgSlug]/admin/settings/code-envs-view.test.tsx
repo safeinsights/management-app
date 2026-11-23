@@ -1,88 +1,37 @@
-import { renderWithProviders, userEvent, vi } from '@/tests/unit.helpers'
-import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { CodeEnvRowView, type CodeEnvRowViewProps, ScanStatusBadge } from './code-envs-view'
+import { screen } from '@testing-library/react'
+import { renderWithProviders } from '@/tests/unit.helpers'
+import { ImageStatusBadge, imageErrorText } from './code-envs-view'
 
-const noop = () => {}
-
-const badgeStyle = (text: string) => screen.getByText(text).closest('.mantine-Badge-root')?.getAttribute('style') ?? ''
-
-const renderRow = (props: Partial<CodeEnvRowViewProps> = {}) =>
-    renderWithProviders(
-        <CodeEnvRowView
-            name="R 4.4"
-            language="R"
-            isTesting={false}
-            isDefault={false}
-            latestScanStatus={null}
-            detailOpened={false}
-            onToggleDetail={noop}
-            onLanguageBadgeClick={noop}
-            onScanBadgeClick={noop}
-            actions={null}
-            detail={null}
-            {...props}
-        />,
-    )
-
-// QA measured Scan Passed at 2.13:1 and Testing at 2.23:1 on Mantine's stock teal and orange. The
-// theme pairs the SI status ramps' light variant with the library tokens, so a badge only reaches
-// that pairing by naming an SI ramp.
-describe('code environment badges', () => {
-    it('paints Scan Passed from the green light variant', () => {
-        renderWithProviders(<ScanStatusBadge name="R 4.4" status="SCAN-COMPLETE" />)
-        expect(badgeStyle('Scan Passed')).toContain('--mantine-color-green-light')
+describe('ImageStatusBadge', () => {
+    // No row means the IDE does not run on MicroVMs here, or no build was asked for yet.
+    it('shows nothing when the url has no image row', () => {
+        renderWithProviders(<ImageStatusBadge status={null} error={null} />)
+        expect(screen.queryByText(/Run Environment/)).toBeNull()
     })
 
-    it('paints Scan Pending from the neutral grey light variant', () => {
-        renderWithProviders(<ScanStatusBadge name="R 4.4" status="SCAN-PENDING" />)
-        expect(badgeStyle('Scan Pending')).toContain('--mantine-color-grey-light')
+    it('shows that a build is in progress', () => {
+        renderWithProviders(<ImageStatusBadge status="IMAGE-RUNNING" error={null} />)
+        expect(screen.getByText('Building Run Environment...')).toBeDefined()
     })
 
-    it('paints Testing and Default from SI ramps', () => {
-        renderRow({ isTesting: true, isDefault: true })
-        expect(badgeStyle('Testing')).toContain('--mantine-color-yellow-light')
-        expect(badgeStyle('Default')).toContain('--mantine-color-purple-filled')
+    it('shows a failed build with what the admin can do about it', () => {
+        renderWithProviders(<ImageStatusBadge status="IMAGE-FAILED" error="BASE_IMAGE_UNAVAILABLE" />)
+        const badge = screen.getByText('Run Environment Failed')
+        expect(badge.closest('[title]')?.getAttribute('title')).toBe(imageErrorText('BASE_IMAGE_UNAVAILABLE'))
     })
 })
 
-describe('code environment details toggle', () => {
-    it.each([true, false])('reports the details toggle as expanded=%s', (detailOpened) => {
-        renderRow({ detailOpened })
-        expect(screen.getByRole('button', { name: 'Details for R 4.4' })).toHaveAttribute(
-            'aria-expanded',
-            String(detailOpened),
-        )
-    })
-})
-
-describe('code environment language badge', () => {
-    it('is reached by Tab after the details toggle and opens starter code with Enter or Space', async () => {
-        const onLanguageBadgeClick = vi.fn()
-        renderRow({ onLanguageBadgeClick })
-
-        await userEvent.tab()
-        expect(screen.getByRole('button', { name: 'Details for R 4.4' })).toHaveFocus()
-        await userEvent.tab()
-        expect(screen.getByRole('button', { name: 'View R starter code for R 4.4' })).toHaveFocus()
-
-        await userEvent.keyboard('{Enter}')
-        await userEvent.keyboard(' ')
-        expect(onLanguageBadgeClick).toHaveBeenCalledTimes(2)
-    })
-})
-
-describe('code environment scan badge', () => {
-    it('opens finished scan results from the keyboard', async () => {
-        const onScanBadgeClick = vi.fn()
-        renderRow({ latestScanStatus: 'SCAN-FAILED', onScanBadgeClick })
-        screen.getByRole('button', { name: 'View Scan Failed results for R 4.4' }).focus()
-        await userEvent.keyboard('{Enter}')
-        expect(onScanBadgeClick).toHaveBeenCalledOnce()
+describe('imageErrorText', () => {
+    it('explains each code that an org admin can act on', () => {
+        expect(imageErrorText('BASE_IMAGE_UNAVAILABLE')).toMatch(/URL/)
+        expect(imageErrorText('UNSUPPORTED_PLATFORM: linux/arm64')).toMatch(/linux\/arm64/)
     })
 
-    it('is not a button while the scan is pending', () => {
-        renderRow({ latestScanStatus: 'SCAN-PENDING' })
-        expect(screen.queryByRole('button', { name: /results for/i })).not.toBeInTheDocument()
+    // Codes are a contract with iac, but a new or unknown one must still give a sentence.
+    it('gives a general sentence for every other code', () => {
+        expect(imageErrorText('MICROVM_BUILD_FAILED: CREATE_FAILED')).toMatch(/SafeInsights support/)
+        expect(imageErrorText('SOMETHING_NEW')).toMatch(/SafeInsights support/)
+        expect(imageErrorText(null)).toMatch(/SafeInsights support/)
     })
 })

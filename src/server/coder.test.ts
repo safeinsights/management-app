@@ -26,7 +26,8 @@ import {
 } from '@/tests/unit.helpers'
 import { fetchFileContents } from './storage'
 
-vi.mock('./config', () => ({
+vi.mock('./config', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('./config')>()),
     getConfigValue: vi.fn(),
     get env() {
         return process.env

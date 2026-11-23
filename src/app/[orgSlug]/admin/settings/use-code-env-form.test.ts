@@ -31,6 +31,8 @@ const mockCodeEnv = {
     settings: { environment: [] },
     createdAt: new Date(),
     latestScanStatus: null,
+    imageStatus: null,
+    imageError: null,
     latestScanResults: null,
     dataSources: [] as { id: string; name: string }[],
 }

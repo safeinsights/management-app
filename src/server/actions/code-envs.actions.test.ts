@@ -24,6 +24,7 @@ import { REDACTED_ENV_VALUE, codeEnvAuditMetadataSchema } from '@/lib/audit-diff
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import { OrgCodeEnvSettings } from '@/database/types'
 import { deleteFolderContents } from '@/server/aws'
+import { requestImageBuild } from '@/server/microvm/images'
 
 vi.mock('@/server/actions/simulate-scan', async () => {
     const actual = await vi.importActual('@/server/actions/simulate-scan')
@@ -48,6 +49,8 @@ vi.mock('@/server/aws', async () => {
         deletePgDatabase: vi.fn().mockResolvedValue(undefined),
     }
 })
+
+vi.mock('@/server/microvm/images', () => ({ requestImageBuild: vi.fn().mockResolvedValue(undefined) }))
 
 describe('Code Environment Actions', () => {
     it('createOrgCodeEnvAction creates a code environment', async () => {
@@ -1467,5 +1470,79 @@ describe('a refused caller gets no code env content (OTTER-891)', () => {
         const seeded = await seedOtherOrgEnv()
         const result = await getSampleDataUploadUrlAction({ codeEnvId: seeded.env.id })
         expectNoContent(result, 'in getSampleDataUploadUrlAction action; cannot update Org.', seeded)
+    })
+})
+
+describe('run environment image', () => {
+    const fields = {
+        name: 'Image Test',
+        identifier: 'image_test',
+        commandLines: { r: 'Rscript %f' },
+        language: 'R' as const,
+        isTesting: true,
+        settings: { environment: [] },
+        dataSourceIds: [],
+    }
+
+    it('asks for an image when a code environment is created', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        vi.mocked(requestImageBuild).mockClear()
+
+        const url = testImageRef('example.com/created')
+        actionResult(
+            await createOrgCodeEnvAction({ ...fields, orgSlug: org.slug, url, starterCodeFileNames: ['main.R'] }),
+        )
+
+        expect(requestImageBuild).toHaveBeenCalledTimes(1)
+        expect(vi.mocked(requestImageBuild).mock.calls[0][1]).toBe(url)
+    })
+
+    it('asks for an image when the url changes', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: true })
+        vi.mocked(requestImageBuild).mockClear()
+
+        const url = testImageRef('example.com/changed')
+        actionResult(await updateOrgCodeEnvAction({ ...fields, orgSlug: org.slug, codeEnvId: codeEnv.id, url }))
+
+        expect(requestImageBuild).toHaveBeenCalledTimes(1)
+        expect(vi.mocked(requestImageBuild).mock.calls[0][1]).toBe(url)
+    })
+
+    // A save is the admin's only way to retry a failed build. requestImageBuild starts nothing for a
+    // url whose image is built or building, so asking on every save costs one query.
+    it('asks again on a save that keeps the url, so that a failed build can be retried', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: true })
+        vi.mocked(requestImageBuild).mockClear()
+
+        actionResult(
+            await updateOrgCodeEnvAction({ ...fields, orgSlug: org.slug, codeEnvId: codeEnv.id, url: codeEnv.url }),
+        )
+
+        expect(requestImageBuild).toHaveBeenCalledTimes(1)
+        expect(vi.mocked(requestImageBuild).mock.calls[0][1]).toBe(codeEnv.url)
+    })
+
+    it('lists each code environment with the status of the image for its url', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const failed = await insertTestCodeEnv({ orgId: org.id, language: 'R', url: testImageRef('example.com/f') })
+        const none = await insertTestCodeEnv({ orgId: org.id, language: 'R', url: testImageRef('example.com/n') })
+        await db
+            .insertInto('microvmImage')
+            .values({ url: failed.url, status: 'IMAGE-FAILED', error: 'BASE_IMAGE_UNAVAILABLE' })
+            .onConflict((oc) =>
+                oc.column('url').doUpdateSet({ status: 'IMAGE-FAILED', error: 'BASE_IMAGE_UNAVAILABLE' }),
+            )
+            .execute()
+        await db.deleteFrom('microvmImage').where('url', '=', none.url).execute()
+
+        const rows = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: org.slug }))
+
+        expect(rows.find((r) => r.id === failed.id)).toMatchObject({
+            imageStatus: 'IMAGE-FAILED',
+            imageError: 'BASE_IMAGE_UNAVAILABLE',
+        })
+        expect(rows.find((r) => r.id === none.id)).toMatchObject({ imageStatus: null, imageError: null })
     })
 })
