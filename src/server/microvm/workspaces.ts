@@ -20,7 +20,6 @@ import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { listStudyFiles, studyFileStore } from '@/server/workspace-files'
 import logger from '@/lib/logger'
 import { getMicrovmConfig, type MicrovmConfig } from './config'
-import { requireIdeImage } from './images'
 
 // The platform maximum. A MicroVM idle this long is suspended, and one suspended this long is
 // terminated; its files are already in S3 by then.
@@ -105,6 +104,15 @@ async function sampleDataEnvironment(config: MicrovmConfig): Promise<Record<stri
     return Object.fromEntries(entries.flat())
 }
 
+/** Every variable a study's code gets: the code environment's own, and the sample-data credentials. */
+export async function studyEnvironment(config: MicrovmConfig, studyId: string): Promise<Record<string, string>> {
+    const [own, sampleData] = await Promise.all([
+        buildWorkspaceEnvironment(await fetchCodeEnvForStudyId(studyId, currentDb())),
+        sampleDataEnvironment(config),
+    ])
+    return { ...Object.fromEntries(own.map(({ name, value }) => [name, value])), ...sampleData }
+}
+
 async function studyPayload(studyId: string) {
     const store = await studyFileStore()
     const files = await Promise.all(
@@ -126,8 +134,6 @@ async function launchSecrets(config: MicrovmConfig) {
 
 async function launchMicrovm(config: MicrovmConfig, studyId: string): Promise<string> {
     const logCtx = `[microvm-launch study=${studyId}]`
-    // First, so that a study whose image is not built leaves no launch config or files behind.
-    const image = await requireIdeImage(studyId, currentDb())
     await initializeWorkspaceCodeFiles(studyId)
     const study = await studyPayload(studyId)
 
@@ -152,8 +158,7 @@ async function launchMicrovm(config: MicrovmConfig, studyId: string): Promise<st
 
     const run = await microvms().send(
         new RunMicrovmCommand({
-            imageIdentifier: image.imageArn,
-            imageVersion: image.imageVersion,
+            imageIdentifier: config.imageArn,
             executionRoleArn: config.executionRoleArn,
             ingressNetworkConnectors: [managedConnector('HTTP_INGRESS')],
             // Through the VPC, so the IDE reaches the sample-data databases as Coder workspaces did.
@@ -271,13 +276,18 @@ export type MicrovmFileSync = {
 }
 
 /** Applies a MicroVM's file changes. Returns false when the token is not the study's MicroVM's. */
-export async function applyMicrovmFileSync(sync: MicrovmFileSync, token: string): Promise<boolean> {
+/** Whether token is the one the study's IDE was launched with. Every call from an IDE proves its study this way. */
+export async function verifySyncToken(studyId: string, token: string): Promise<boolean> {
     const config = await requireConfig()
-    const record = await readRecord(config.workspacesBucket, sync.studyId)
+    const record = await readRecord(config.workspacesBucket, studyId)
     if (!record) return false
     const expected = Buffer.from(record.syncTokenHash)
     const actual = Buffer.from(sha256(token))
-    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return false
+    return expected.length === actual.length && timingSafeEqual(expected, actual)
+}
+
+export async function applyMicrovmFileSync(sync: MicrovmFileSync, token: string): Promise<boolean> {
+    if (!(await verifySyncToken(sync.studyId, token))) return false
 
     const store = await studyFileStore()
     for (const file of sync.files) {

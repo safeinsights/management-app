@@ -1,12 +1,7 @@
 import { type DBExecutor } from '@/database'
 import type { CodeEnvSnapshot } from '@/database/types-manual'
-import { isMicrovmBackend } from '@/server/microvm/config'
 
 // The one rule for which code env a study runs: the org's newest non-testing env for its language.
-// Where the IDE runs on MicroVMs, an env whose image can be launched comes before one whose image
-// cannot, so a new env does not become the default while a researcher could not open it. It is an
-// order and not a filter: job approval and the study's frozen copy read this too, and they must get
-// an env when none has an image yet.
 export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
     return db
         .selectFrom('study')
@@ -15,19 +10,6 @@ export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
         )
         .where('study.id', '=', studyId)
         .where('orgCodeEnv.isTesting', '=', false)
-        .$if(isMicrovmBackend(), (qb) =>
-            qb.orderBy(
-                (eb) =>
-                    eb.exists(
-                        eb
-                            .selectFrom('microvmImage')
-                            .select('microvmImage.id')
-                            .whereRef('microvmImage.url', '=', 'orgCodeEnv.url')
-                            .where('microvmImage.imageVersion', 'is not', null),
-                    ),
-                'desc',
-            ),
-        )
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
 }

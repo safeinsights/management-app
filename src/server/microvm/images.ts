@@ -116,41 +116,22 @@ export async function requestImageBuild(db: DBExecutor, url: string): Promise<vo
     await startImageBuild(db, url, config, { retryFailed: true })
 }
 
-// Every side of a fusion study runs in the study's one VM, so it boots from an image SafeInsights
-// builds, with R, Python and the fusion SDK, kept as a code environment of the SafeInsights org.
-export const FUSION_CODE_ENV = { orgSlug: 'safe-insights', identifier: 'fusion' }
-
-export async function fetchIdeImageUrlForStudyId(
-    studyId: string,
-    db: DBExecutor,
-    opts: { fusion?: boolean } = {},
-): Promise<string> {
-    if (!opts.fusion) return (await fetchCodeEnvForStudyId(studyId, db)).url
-    const fusion = await db
-        .selectFrom('orgCodeEnv')
-        .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
-        .select('orgCodeEnv.url')
-        .where('org.slug', '=', FUSION_CODE_ENV.orgSlug)
-        .where('orgCodeEnv.identifier', '=', FUSION_CODE_ENV.identifier)
-        .executeTakeFirst()
-    if (!fusion) throw new Error('the SafeInsights fusion code environment does not exist')
-    return fusion.url
-}
-
 export function imageNotReadyMessage(status: MicrovmImageStatus | undefined): string {
     if (status === 'IMAGE-FAILED') {
-        return 'The environment is not ready. The build of its IDE image failed. Contact your organization administrator.'
+        return 'The run environment is not ready. Its build failed. Contact your organization administrator.'
     }
-    return 'The environment is not ready. Its IDE image is being built. Try again in approximately 15 minutes.'
+    return 'The run environment is not ready. It is being built. Try again in a few minutes.'
 }
 
-/** The image a study's IDE runs. Throws an ActionFailure, which the launch page shows, if none is usable. */
-export async function requireIdeImage(
+/**
+ * The image a study's runner starts from: the one built for its code environment's url.
+ * Throws an ActionFailure, whose text the IDE's terminal shows, if none is usable.
+ */
+export async function requireRunnerImage(
     studyId: string,
     db: DBExecutor,
-    opts: { fusion?: boolean } = {},
 ): Promise<{ imageArn: string; imageVersion: string }> {
-    const url = await fetchIdeImageUrlForStudyId(studyId, db, opts)
+    const { url } = await fetchCodeEnvForStudyId(studyId, db)
     const image = await db
         .selectFrom('microvmImage')
         .select(['status', 'imageArn', 'imageVersion'])

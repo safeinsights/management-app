@@ -11,6 +11,10 @@ export type MicrovmConfig = {
     // A code environment's image is named this plus the hash of its url.
     imageNamePrefix: string
     baseRepositoryName: string
+    // The one image every study's IDE runs: SafeInsights' own, with the editor and its extensions.
+    imageArn: string
+    // Where runner VMs log.
+    runnerLogGroup: string
     executionRoleArn: string
     egressConnectorArn: string
     sampleDataSecrets: string[]

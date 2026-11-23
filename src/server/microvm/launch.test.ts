@@ -4,7 +4,6 @@ import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
 import { GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { LambdaMicrovmsClient, RunMicrovmCommand } from '@aws-sdk/client-lambda-microvms'
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
-import { requireIdeImage } from './images'
 import { ensureMicrovm } from './workspaces'
 
 vi.mock('@/server/config', async (importOriginal) => ({
@@ -12,7 +11,6 @@ vi.mock('@/server/config', async (importOriginal) => ({
     CODER_DISABLED: false,
 }))
 vi.stubEnv('IDE_BACKEND', 'microvm')
-vi.mock('./images', () => ({ requireIdeImage: vi.fn() }))
 vi.mock('@/server/coder/workspaces', () => ({
     buildWorkspaceEnvironment: async () => [],
     initializeWorkspaceCodeFiles: async () => undefined,
@@ -37,6 +35,7 @@ beforeEach(() => {
     ssm.on(GetParameterCommand).resolves({
         Parameter: {
             Value: JSON.stringify({
+                imageArn: 'arn:aws:lambda:us-east-1:123456789012:microvm-image:research-ide-test',
                 executionRoleArn: 'arn:aws:iam::123456789012:role/exec',
                 egressConnectorArn: 'arn:aws:lambda:us-east-1:123456789012:network-connector:abc',
                 sampleDataSecrets: [],
@@ -53,21 +52,14 @@ beforeEach(() => {
     microvms.on(RunMicrovmCommand).resolves({ microvmId: 'microvm-new' })
 })
 
-it('runs the study on the image and version built for its code environment url', async () => {
-    vi.mocked(requireIdeImage).mockResolvedValue({ imageArn: 'arn:image:ide-test-abc', imageVersion: '4.0' })
-
+// The IDE is SafeInsights' own image for every study. A study's code runs on its runner, so the
+// state of the code environment's image must not stand between a researcher and the editor.
+it('launches the IDE from the one SafeInsights image, whatever the state of the run environment', async () => {
     expect(await ensureMicrovm(studyId)).toEqual({ microvmId: 'microvm-new' })
 
     const [run] = microvms.commandCalls(RunMicrovmCommand)
-    expect(run.args[0].input).toMatchObject({ imageIdentifier: 'arn:image:ide-test-abc', imageVersion: '4.0' })
-})
-
-// The check comes first: nothing is written to S3 and no MicroVM is started for an image that is not there.
-it('starts nothing when the image is not ready', async () => {
-    vi.mocked(requireIdeImage).mockRejectedValue(new Error('The environment is not ready.'))
-
-    await expect(ensureMicrovm(studyId)).rejects.toThrow('The environment is not ready.')
-
-    expect(microvms.commandCalls(RunMicrovmCommand)).toHaveLength(0)
-    expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0)
+    expect(run.args[0].input.imageIdentifier).toBe(
+        'arn:aws:lambda:us-east-1:123456789012:microvm-image:research-ide-test',
+    )
+    expect(run.args[0].input.imageVersion).toBeUndefined()
 })
