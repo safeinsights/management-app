@@ -695,9 +695,10 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
 // Required-field blur validation (OTTER-647)
 // ============================================================================
 
-// Owns the blur-validation surface: leaving a required field incomplete must flag it
-// rather than silently disabling submit. Drives Step 1 and Step 2 live because the
-// behavior is the interaction itself and cannot be seeded.
+// Owns the blur-validation surface: an incomplete required field must be flagged rather than
+// silently disabling submit. Step 1 flags its blank title on the click, not on blur (OTTER-964).
+// Drives Step 1 and Step 2 live because the behavior is the interaction itself and cannot be
+// seeded.
 //
 // OTTER-690 reshaped Step 1: Save & continue is never disabled, because clicking it is what
 // surfaces the errors, and the title is validated here rather than on Step 2.
@@ -718,11 +719,11 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         await expect(page.getByText('Select a Data Partner before continuing.')).toBeHidden()
         await expect(page.getByText('Enter a study title before continuing.')).toBeHidden()
 
-        // Focusing the title and leaving it empty raises its error on blur.
+        // Focusing the title and leaving it empty does not flag it: the error waits for the click.
         const title = page.getByLabel(/Study title/)
         await title.click()
         await page.getByTestId('org-select').click()
-        await expect(page.getByText('Enter a study title before continuing.')).toBeVisible()
+        await expect(page.getByText('Enter a study title before continuing.')).toBeHidden()
         await page.keyboard.press('Escape')
 
         // Clicking with everything blank flags every visible field at once. Two, not three: the
