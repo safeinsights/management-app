@@ -412,16 +412,17 @@ describe('Study title character limit', () => {
 })
 
 describe('Study title blank error', () => {
-    it('starts clean and raises the blank error once the field is focused and left', async () => {
+    it('does not raise the blank error on blur, only on the Save & continue click', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
 
-        expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
-
         await user.click(titleInput())
         await user.tab()
+        expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
+        expect(titleInput()).not.toHaveAttribute('aria-invalid', 'true')
 
+        await user.click(continueButton())
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
     })
 
@@ -441,8 +442,7 @@ describe('Study title blank error', () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures)
 
-        await user.click(titleInput())
-        await user.tab()
+        await user.click(continueButton())
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
 
         await typeTitle(user, 'A real study title')
@@ -1132,9 +1132,9 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         expect(row?.title).toBe('A previously saved title')
     })
 
-    // The blur rule survives the state change too: emptying the field and leaving it raises the
-    // error here, before any click.
-    it('raises the blank title error on blur', async () => {
+    // The blur rule survives the state change too: emptying the field and leaving it stays clean
+    // here, and the click is what raises the error.
+    it('does not raise the blank title error on blur after emptying a saved title', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         const { draftData } = await insertRevisitableDraft(fixtures)
@@ -1143,7 +1143,9 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
         await user.clear(titleInput())
         await user.tab()
+        expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
 
+        await user.click(continueButton())
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
     })
 

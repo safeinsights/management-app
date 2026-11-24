@@ -53,7 +53,11 @@ export function useSetupForm({
         [form],
     )
 
-    const onTitleBlur = useCallback(() => form.validateField('title'), [form])
+    // Figma holds a blank title's error for the click (OTTER-964); over-limit is already live.
+    const onTitleBlur = useCallback(() => {
+        if (!form.getValues().title?.trim()) return
+        form.validateField('title')
+    }, [form])
 
     // Rebuilt per click: the language field is absent until a partner is chosen and a locked
     // field has nothing focusable, so a stale id would leave the click looking dead.
