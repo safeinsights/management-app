@@ -19,7 +19,18 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 const AI_SUMMARY_EXPANDED_MAX_HEIGHT = 616
 
 // Names that stay capitalized in a sentence-case heading, so they neither prove Title Case nor get lowercased.
-const PROPER_NAMES = new Set(['Python', 'Excel', 'Google', 'Postgres', 'Jupyter', 'Spark', 'Stata', 'Julia'])
+const PROPER_NAMES = new Set([
+    'Python',
+    'Excel',
+    'Google',
+    'Postgres',
+    'Jupyter',
+    'Spark',
+    'Stata',
+    'Julia',
+    'Mars',
+    'University',
+])
 // Title Case styles keep these lowercase too, so they say nothing about how a heading was written.
 const TITLE_CASE_LOWERCASE_WORDS = new Set([
     'about',

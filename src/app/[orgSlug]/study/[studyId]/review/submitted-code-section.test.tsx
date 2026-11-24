@@ -343,6 +343,7 @@ describe('SubmittedCodeSection — AI summary', () => {
                 '### Reading Data from the Student File\n\nRows.',
                 '### Reading Data From Google Sheets\n\nSheets.',
                 '### *Variables Used* In The Script\n\nNames.',
+                '### Querying Mars University Data\n\nRows.',
             ].join('\n\n'),
         )
         await renderSection(headedFixture)
@@ -355,6 +356,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.getByRole('heading', { name: 'Reading data from the student file' })).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Reading data from Google sheets' })).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Variables used in the script' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Querying Mars University data' })).toBeInTheDocument()
         expect(screen.getByText('The Code Uses R.')).toBeInTheDocument()
     })
 
