@@ -1,7 +1,6 @@
 import { describe, expect, it } from '../../tests/unit.helpers'
 import {
     coverageCheck,
-    evaluateCoverage,
     evaluateFixtures,
     evaluateIntegrity,
     evaluateRules,
@@ -49,8 +48,15 @@ const fixture = [
     'mean(x)', // 7
 ].join('\n')
 
+// One finding for each regression the gate asserts, as Semgrep reports it under notebooks/ or src/.
+const allRegressions = (): SemgrepFinding[] =>
+    REGRESSION_FINDINGS.map(([file, line, rule]) => finding(`notebooks/${file}`, line ?? 1, 'ERROR', rule))
+
 const coverage = (results: SemgrepFinding[], files: Record<string, string>, errors: SemgrepOutput['errors'] = []) =>
-    evaluateCoverage({ report: { results, errors }, testFiles: new Map(Object.entries(files)) })
+    coverageCheck({
+        report: { results: [...results, ...allRegressions()], errors },
+        testFiles: new Map(Object.entries(files)),
+    })
 
 const covered = [finding('src/r-security.r', 3), finding('src/r-security.r', 5)]
 
@@ -175,7 +181,7 @@ describe('evaluateFixtures', () => {
     })
 })
 
-describe('evaluateCoverage', () => {
+describe('coverageCheck', () => {
     it('passes when every section has a finding and legitimate code has none that gates', () => {
         const check = coverage([...covered, finding('src/r-security.r', 7, 'INFO')], { 'r-security.r': fixture })
         expect(check).toEqual({ name: 'coverage', passed: true, failures: [] })
@@ -238,9 +244,6 @@ describe('evaluateCoverage', () => {
 
 describe('coverageCheck regressions', () => {
     const legitimate = { 'corpus/analysis.R': 'mean(x)' }
-    // One finding for each regression the gate asserts, as Semgrep reports it under notebooks/ or src/.
-    const allRegressions = (): SemgrepFinding[] =>
-        REGRESSION_FINDINGS.map(([file, line, rule]) => finding(`notebooks/${file}`, line ?? 1, 'ERROR', rule))
     const withRegressions = (results: SemgrepFinding[], files: Record<string, string> = legitimate) =>
         coverageCheck({ report: { results, errors: [] }, testFiles: new Map(Object.entries(files)) })
 

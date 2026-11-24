@@ -214,10 +214,6 @@ function sectionFailures(path: string, text: string, findings: CoverageFinding[]
  */
 export type CoverageInput = { report: SemgrepOutput; testFiles: Map<string, string> }
 
-export function evaluateCoverage(input: CoverageInput): GateCheck {
-    return gateCheck('coverage', coverageFailures(input))
-}
-
 // The fixture sections and the legitimate code, plus the regression findings of check-coverage.ts.
 export function coverageCheck(input: CoverageInput): GateCheck {
     return gateCheck('coverage', [...coverageFailures(input), ...regressionFailures(input.report, input.testFiles)])
