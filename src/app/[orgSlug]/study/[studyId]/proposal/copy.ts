@@ -14,7 +14,7 @@ export interface ConfirmModalCopy {
     title: string
     body: string
     confirmLabel: string
-    /** Omit to keep Mantine's default loader overlay on the confirm button. */
+    /** Omit to keep the confirm label beside the spinner. */
     confirmLoadingLabel?: string
 }
 
