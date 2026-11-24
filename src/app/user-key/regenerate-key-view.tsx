@@ -62,7 +62,6 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 isOpen={isModalOpen}
                 onClose={onCloseModal}
                 onConfirm={onConfirmGenerate}
-                isSubmitting={false}
                 title={KEY_RESET_MODAL_TITLE}
                 body={KEY_RESET_MODAL_BODY}
                 confirmLabel="Generate new key"

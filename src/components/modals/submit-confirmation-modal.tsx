@@ -8,7 +8,7 @@ interface SubmitConfirmationModalProps {
     isOpen: boolean
     onClose: () => void
     onConfirm: () => void
-    isSubmitting: boolean
+    isSubmitting?: boolean
     title: string
     body: ReactNode
     confirmLabel: string
@@ -45,7 +45,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     isOpen,
     onClose,
     onConfirm,
-    isSubmitting,
+    isSubmitting = false,
     title,
     body,
     confirmLabel,

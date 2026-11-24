@@ -55,7 +55,6 @@ const VerificationModal: FC<{
         isOpen={isOpen}
         onClose={onClose}
         onConfirm={onConfirm}
-        isSubmitting={false}
         title="Account verification"
         body="If this email address is associated with an existing account, you will receive an email verification code to reset your password."
         confirmLabel="Enter verification code"

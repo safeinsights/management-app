@@ -14,7 +14,7 @@ const confirmButton = (name: string | RegExp) => screen.getByRole('button', { na
 
 describe('SubmitConfirmationModal', () => {
     it('renders the title, body and both buttons', () => {
-        renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting={false} />)
+        renderWithProviders(<SubmitConfirmationModal {...props} />)
 
         expect(screen.getByText('Submit your proposal?')).toBeInTheDocument()
         expect(screen.getByText(props.body)).toBeInTheDocument()
@@ -54,7 +54,6 @@ describe('SubmitConfirmationModal', () => {
         renderWithProviders(
             <SubmitConfirmationModal
                 {...props}
-                isSubmitting={false}
                 body={
                     <>
                         <p>First paragraph.</p>
@@ -69,7 +68,7 @@ describe('SubmitConfirmationModal', () => {
     })
 
     it('styles the confirm button as destructive for the error variant', () => {
-        renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting={false} variant="error" />)
+        renderWithProviders(<SubmitConfirmationModal {...props} variant="error" />)
 
         expect(confirmButton('Submit proposal')).toHaveAttribute('data-variant', 'error')
     })
