@@ -26,7 +26,7 @@ const UnclaimedHelperText: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
     return (
         <Group gap="xxs" wrap="nowrap">
-            <WarningIcon size={12} weight="fill" color={semanticColor('warning.text')} aria-hidden />
+            <WarningIcon size={12} weight="fill" color={semanticColor('warning.bg.dark')} aria-hidden />
             <Text size="xs" c={semanticColor('text.secondary')}>
                 {UNCLAIMED_HELPER}
             </Text>
@@ -72,7 +72,7 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
             variant={isClaimed ? 'outline' : 'filled'}
             disabled={!canLaunch}
             loading={isLaunching}
-            rightSection={<ArrowSquareOutIcon size={16} />}
+            rightSection={<ArrowSquareOutIcon size={16} weight="bold" />}
             onClick={onLaunch}
         >
             {LABEL}

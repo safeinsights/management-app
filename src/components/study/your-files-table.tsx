@@ -1,7 +1,18 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { ActionIcon, Anchor, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import {
+    ActionIcon,
+    Anchor,
+    Badge,
+    Divider,
+    Group,
+    HoverCard,
+    Table,
+    Text,
+    Tooltip,
+    UnstyledButton,
+} from '@mantine/core'
 import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { LocalDateTime } from '@/components/local-date-time'
@@ -69,7 +80,7 @@ const MainFileColumnHeader: FC = () => (
         <HoverCard width={280} withArrow shadow="md" position="top">
             <HoverCard.Target>
                 <Text component="span" display="inline-flex" aria-label="Main file info">
-                    <InfoIcon size={14} aria-hidden />
+                    <InfoIcon size={14} weight="fill" color={semanticColor('icon.light')} aria-hidden />
                 </Text>
             </HoverCard.Target>
             <HoverCard.Dropdown>
@@ -250,7 +261,7 @@ const FileRow: FC<FileRowProps> = ({
     onDelete,
 }) => (
     <Table.Tr>
-        <Table.Td>
+        <Table.Td ta="center">
             <MainFileStar fileName={file.name} isMain={isMain} isEditable={isEditable} onSelect={onSelectMain} />
         </Table.Td>
         <Table.Td>
@@ -317,10 +328,16 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
 
     return (
         <>
-            <Table verticalSpacing="md" layout="fixed" w="100%">
+            <Table
+                verticalSpacing="md"
+                layout="fixed"
+                w="100%"
+                highlightOnHover
+                highlightOnHoverColor={semanticColor('surface.sunken')}
+            >
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={COLUMN_WIDTHS.mainFile}>
+                        <Table.Th w={COLUMN_WIDTHS.mainFile} pl="md">
                             <MainFileColumnHeader />
                         </Table.Th>
                         <Table.Th miw={COLUMN_WIDTHS.fileName}>File name</Table.Th>
@@ -348,6 +365,8 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
                     ))}
                 </Table.Tbody>
             </Table>
+            {/* Mantine drops the last row's border; the design closes the table with one. */}
+            <Divider />
 
             <SubmitConfirmationModal
                 isOpen={pendingDelete !== null}

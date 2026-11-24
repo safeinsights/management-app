@@ -40,7 +40,7 @@ const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) =
         Develop and test your code in the SafeInsights IDE (Integrated Development Environment) with preloaded example
         data from {dataPartnerName}. The IDE opens in a new tab, and any files you create will appear here
         automatically. When you are ready,{' '}
-        <Text span fw={fontWeight.bold}>
+        <Text span fw={fontWeight.semibold}>
             return here, select your main file, and submit your code for review
         </Text>
         .
