@@ -723,6 +723,8 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         const title = page.getByLabel(/Study title/)
         await title.click()
         await page.getByTestId('org-select').click()
+        // Focus has moved, so the title's blur has run before the hidden check below.
+        await expect(page.getByTestId('org-select')).toBeFocused()
         await expect(page.getByText('Enter a study title before continuing.')).toBeHidden()
         await page.keyboard.press('Escape')
 

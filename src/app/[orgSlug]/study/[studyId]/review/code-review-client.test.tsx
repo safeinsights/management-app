@@ -198,7 +198,7 @@ describe('CodeReviewClient decision selector', () => {
         })
     })
 
-    it('does not flag a field on blur before the first submit click', async () => {
+    it('does not flag the criteria or decision radios on blur before the first submit click', async () => {
         const user = userEvent.setup()
         const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
@@ -247,8 +247,32 @@ describe('CodeReviewClient decision selector', () => {
         await setEditorText(editor, 'sample feedback body')
         await user.click(screen.getByTestId('code-evaluation-attention'))
 
+        // The submit click awaits the same feedback validation, so its other errors showing means
+        // the blur's validation has settled too.
+        await user.click(screen.getByTestId('code-review-submit'))
+        await waitFor(() => {
+            expect(screen.getByText('Select an answer for each criterion.')).toBeInTheDocument()
+            expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
         expect(screen.queryByText('Enter your feedback for Rice University.')).not.toBeInTheDocument()
         expect(editor).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('flags all three fields when Submit is the click that leaves the empty feedback editor', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await user.click(await screen.findByRole('textbox', { name: 'Code review feedback' }))
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => {
+            expect(screen.getByText('Select an answer for each criterion.')).toBeInTheDocument()
+            expect(screen.getByText('Enter your feedback for Rice University.')).toBeInTheDocument()
+            expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
     })
 
     it('scrolls to and focuses the first flagged field, reading top to bottom', async () => {

@@ -426,6 +426,20 @@ describe('Study title blank error', () => {
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
     })
 
+    it('treats a whitespace-only title as blank: no error on blur, the error on the click', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await user.type(titleInput(), '   ')
+        await user.tab()
+        expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
+        expect(titleInput()).not.toHaveAttribute('aria-invalid', 'true')
+
+        await user.click(continueButton())
+        expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
+    })
+
     it('does not raise the blank error for a field the user never focused', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
