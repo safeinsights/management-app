@@ -2,7 +2,7 @@ import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } fr
 import { InvokeCommand, LambdaClient, type InvokeCommandOutput } from '@aws-sdk/client-lambda'
 import { mockClient } from 'aws-sdk-client-mock'
 import { onTestFinished, vi } from 'vitest'
-import type { GateResponse, RulesetEnv } from '../services/semgrep-runner/protocol'
+import type { GateResponse, RulesetEnv, TestRequest, TestResponse } from '../services/semgrep-runner/protocol'
 
 // Kept out of unit.helpers so the AWS mocks only load for suites that use the rules bucket.
 
@@ -112,6 +112,31 @@ export function stubRunner(reply: (version: string) => RunnerReply | Promise<Run
             }
         }
         return { Payload: payload('payload' in answer ? answer.payload : JSON.stringify(answer)) }
+    })
+    onTestFinished(() => lambda.restore())
+    return lambda
+}
+
+export const testResponse = (overrides: Partial<TestResponse> = {}): TestResponse => ({
+    mode: 'test',
+    outcome: 'NO-FINDINGS',
+    log: 'Semgrep Scan: no findings',
+    findings: [],
+    errors: [],
+    tests: null,
+    ...overrides,
+})
+
+// The Semgrep runner Lambda in test mode: answers each invoke with reply(request).
+export function stubTestRunner(
+    reply: (request: TestRequest) => TestResponse | { functionError: string } = () => testResponse(),
+) {
+    const lambda = mockClient(LambdaClient)
+    lambda.on(InvokeCommand).callsFake(async ({ Payload }) => {
+        const text = typeof Payload === 'string' ? Payload : new TextDecoder().decode(Payload)
+        const answer = reply(JSON.parse(text) as TestRequest)
+        if ('functionError' in answer) return { FunctionError: 'Unhandled', Payload: payload('{}') }
+        return { Payload: payload(JSON.stringify(answer)) }
     })
     onTestFinished(() => lambda.restore())
     return lambda

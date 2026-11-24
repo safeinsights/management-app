@@ -71,7 +71,7 @@ type Abilities =
       >
     | Ability<'Orgs', 'view', object>
     // No rule grants it: only SI admins reach it, through `manage all`.
-    | Ability<'SemgrepRuleset', 'update' | 'publish', object>
+    | Ability<'SemgrepRuleset', 'view' | 'update' | 'publish', object>
     | Ability<'MFA', 'reset', object>
     // orgId/studyId carry the DOCUMENT's scope. isGlobal and audienceOrgIds are derived per
     // request by middleware and answer the only question 'acknowledge' asks: who does it bind?

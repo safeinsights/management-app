@@ -71,6 +71,13 @@ export async function readManifest(env: RulesetEnv, version: string): Promise<Ru
     return object ? rulesetManifestSchema.parse(JSON.parse(object.body)) : null
 }
 
+// Newest first. A version whose version.json is not written yet is left out.
+export async function listManifests(env: RulesetEnv): Promise<RulesetManifest[]> {
+    const numbers = (await listVersionNumbers(env)).reverse()
+    const manifests = await mapLimited(numbers, (number) => readManifest(env, `v${number}`))
+    return manifests.filter((manifest) => manifest !== null)
+}
+
 export async function readVersionFiles(env: RulesetEnv, manifest: RulesetManifest): Promise<RulesetDraftFile[]> {
     const prefix = rulesetVersionPrefix(env, manifest.version)
     return mapLimited(manifest.files, async (path) => ({ path, content: (await getText(`${prefix}${path}`)).body }))
