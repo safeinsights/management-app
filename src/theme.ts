@@ -400,8 +400,8 @@ export const theme = createTheme({
                 },
                 // Mantine's line-height 1 crams a title that wraps in a narrow modal.
                 title: {
-                    fontSize: 'var(--mantine-font-size-xl)',
-                    fontWeight: fontWeight.semibold,
+                    fontSize: 'var(--mantine-font-size-md)',
+                    fontWeight: fontWeight.bold,
                     lineHeight: 'var(--si-line-height-heading)',
                 },
             },

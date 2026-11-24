@@ -42,8 +42,9 @@ export const IdeLaunchProgressModal: FC<IdeLaunchProgressModalProps> = ({
         <AppModal
             isOpen={isOpen}
             onClose={onAbandon}
+            // The theme's modal title is 16px; this one is a full dialog, 20px in the spec.
             title={
-                <Text span inherit fw={fontWeight.bold}>
+                <Text span inherit fz="xl">
                     {MODAL_TITLE}
                 </Text>
             }

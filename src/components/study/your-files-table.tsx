@@ -19,7 +19,6 @@ import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/us
 import { LocalDateTime } from '@/components/local-date-time'
 import { DATE_TIME_FORMAT } from '@/lib/dates'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
-import { CODE_MODAL_PLACEMENT } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { MainFileTemplateCopy } from './main-file-template-copy'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -389,14 +388,10 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
                 isOpen={pendingDelete !== null}
                 onClose={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
-                isSubmitting={false}
                 title="Delete file?"
                 body={<DeleteFileBody fileName={pendingDelete ?? ''} />}
                 confirmLabel="Delete file"
-                confirmVariant="error"
-                size={440}
-                compact
-                {...CODE_MODAL_PLACEMENT}
+                variant="error"
             />
         </>
     )

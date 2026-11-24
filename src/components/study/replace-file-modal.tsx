@@ -2,7 +2,7 @@
 
 import type { FC } from 'react'
 import { Button, Group, Stack, Text } from '@mantine/core'
-import { AppModal, CompactModalTitle } from '@/components/modals/app-modal'
+import { AppModal } from '@/components/modals/app-modal'
 import type { DuplicateResolution } from '@/hooks/use-upload-queue'
 import { fontWeight } from '@/theme/tokens'
 
@@ -19,12 +19,7 @@ type ReplaceFileModalProps = {
  * so Replace carries the red treatment and Cancel sits apart from the two actions.
  */
 export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve }) => (
-    <AppModal
-        isOpen={file !== null}
-        onClose={() => onResolve('cancel')}
-        title={<CompactModalTitle>{MODAL_TITLE}</CompactModalTitle>}
-        size={440}
-    >
+    <AppModal isOpen={file !== null} onClose={() => onResolve('cancel')} title={MODAL_TITLE} size={440}>
         <Stack gap="xl">
             <Text size="sm">
                 A file named{' '}

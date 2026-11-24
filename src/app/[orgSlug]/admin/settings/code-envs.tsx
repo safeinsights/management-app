@@ -25,7 +25,7 @@ import { reportMutationError, reportError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 import { Refresher } from '@/components/refresher'
 import { LoadingMessage } from '@/components/loading'
-import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import { QueryStateBody } from './query-state-body'
 import { orgDataSourcesQueryKey } from '@/hooks/use-org-data-sources'
 import { CodeViewer, FileViewer } from '@/components/file-viewers'
@@ -110,10 +110,6 @@ const CodeEnvDetailPanel: React.FC<{
                         ))}
                         {starterCodeFileNames.length === 0 && '-'}
                     </Stack>
-                </DetailRow>
-                <DetailRow label="Example Data Path">{image.sampleDataPath || '-'}</DetailRow>
-                <DetailRow label="Data Source Type">
-                    {DATA_SOURCE_TYPES[image.dataSourceType as DataSourceType] || '-'}
                 </DetailRow>
                 <DetailRow label="Data Sources">{image.dataSources?.map((ds) => ds.name).join(', ') || '-'}</DetailRow>
                 <DetailRow label="Env Vars">{envVars}</DetailRow>

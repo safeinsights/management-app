@@ -25,9 +25,7 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         deleteS3File: vi.fn().mockResolvedValue(undefined),
         deleteFolderContents: vi.fn().mockResolvedValue(undefined),
-        createAthenaDatabase: vi.fn().mockResolvedValue(undefined),
         deleteAthenaDatabase: vi.fn().mockResolvedValue(undefined),
-        createPgDatabase: vi.fn().mockResolvedValue(undefined),
         deletePgDatabase: vi.fn().mockResolvedValue(undefined),
     }
 })

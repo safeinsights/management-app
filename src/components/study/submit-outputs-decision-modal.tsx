@@ -50,6 +50,7 @@ export const SubmitOutputsDecisionModal: FC<SubmitOutputsDecisionModalProps> = (
             title="Submit your decision?"
             body={confirmationBody(shown, labName)}
             confirmLabel="Submit decision"
+            confirmLoadingLabel="Submitting"
         />
     )
 }

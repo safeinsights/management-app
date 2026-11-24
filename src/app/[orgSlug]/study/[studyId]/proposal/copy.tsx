@@ -21,7 +21,7 @@ export interface ConfirmModalCopy {
     title: string
     body: ReactNode
     confirmLabel: string
-    /** Omit to keep Mantine's default loader overlay on the confirm button. */
+    /** Omit to keep the confirm label beside the spinner. */
     confirmLoadingLabel?: string
 }
 
@@ -54,9 +54,6 @@ export const submitCodeModalCopy = (orgName: string): ConfirmModalCopy => ({
     confirmLabel: 'Submit code',
     confirmLoadingLabel: 'Submitting',
 })
-
-// Submit and resubmit code share a fixed 256px offset, unlike the Set up modal's 25dvh.
-export const CODE_MODAL_PLACEMENT = { centered: false, yOffset: 256 } as const
 
 export const resubmitCodeModalCopy = (orgName: string): ConfirmModalCopy => ({
     title: 'Resubmit your code for review?',

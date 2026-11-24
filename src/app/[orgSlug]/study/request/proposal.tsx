@@ -166,9 +166,6 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({
                     title="Continue to the next step?"
                     body={MODAL_BODY}
                     confirmLabel="Continue"
-                    size="md"
-                    centered={false}
-                    yOffset="25dvh"
                 />
             </Stack>
         </PageLayout>

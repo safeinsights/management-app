@@ -17,7 +17,7 @@ import { fontWeight } from '@/theme/tokens'
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
     return (
         <Group justify="space-between" align="center" wrap="nowrap" data-testid="submitted-code-header">
-            <Title order={3} fz="lg" fw={fontWeight.bold}>
+            <Title order={3} fz="xl" fw={fontWeight.bold}>
                 Submission details
             </Title>
             <Button
@@ -49,7 +49,7 @@ function DatasetPills({ names }: { names: string[] }) {
     )
     return (
         <Stack gap="xs" data-testid="submitted-code-datasets">
-            <Text size="sm" fw={fontWeight.bold}>
+            <Text fz="md" fw={fontWeight.bold}>
                 Dataset(s) associated with the study
             </Text>
             <Group gap="xs">{names.length === 0 ? empty : pills}</Group>
@@ -118,7 +118,7 @@ export function SubmittedCodeSection({
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
-            <Stack gap="md">
+            <Stack gap="lg">
                 <SubmittedCodeHeader proposalHref={proposalHref} />
                 <Divider />
                 <JobAnalysisPanels

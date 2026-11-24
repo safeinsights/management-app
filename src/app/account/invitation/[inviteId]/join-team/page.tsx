@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@/common'
 import { reportError, reportMutationError } from '@/components/errors'
 import { useReloadOrgList } from '@/hooks/session'
 import { LoadingMessage } from '@/components/loading'
-import { AppModal } from '@/components/modals/app-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
 import { inviteLandingUrl } from '@/lib/invite-landing'
 import { markInvitationNotice } from '@/lib/invitation-notice'
@@ -13,7 +13,7 @@ import { markOrgJoined } from '@/lib/joined-org'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
 import { FocusedCard } from '@/components/layout/focused-card'
-import { Button, Flex, Group, Stack, Text, Title } from '@mantine/core'
+import { Button, Flex, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import {
@@ -171,23 +171,23 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 }
 
 const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConfirm, isLoading = false, orgName }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title="Decline invitation?">
-        <Stack>
-            <Text size="md">Are you sure you want to decline the invitation to join {orgName}?</Text>
-            <Text size="sm" c={semanticColor('error.text')}>
-                <b>Note:</b> If you decline this invitation, you will need to request a new one if you want to join this
-                organization later.
-            </Text>
-            <Group>
-                <Button variant="outline" onClick={onClose} size="md">
-                    Cancel
-                </Button>
-                <Button loading={isLoading} onClick={onConfirm} size="md">
-                    Decline invitation
-                </Button>
-            </Group>
-        </Stack>
-    </AppModal>
+    <SubmitConfirmationModal
+        isOpen={isOpen}
+        onClose={onClose}
+        onConfirm={onConfirm}
+        isSubmitting={isLoading}
+        title="Decline invitation?"
+        body={
+            <Stack>
+                <Text inherit>Are you sure you want to decline the invitation to join {orgName}?</Text>
+                <Text inherit c={semanticColor('error.text')}>
+                    <b>Note:</b> If you decline this invitation, you will need to request a new one if you want to join
+                    this organization later.
+                </Text>
+            </Stack>
+        }
+        confirmLabel="Decline invitation"
+    />
 )
 
 export default AddTeam

@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
     buildTriggerBuildImageCommandInput,
     buildTriggerScanForStudyJobCommandInput,
-    sanitizeColumnName,
     s3KeyPrefix,
     testDataBucketName,
     toAthenaDbName,
@@ -209,28 +208,6 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
 
         // A CODE-SUBMITTED echo on start would reopen a round a reviewer may have decided.
         expect(input.environmentVariablesOverride.some((v) => v.name === 'ON_START_PAYLOAD')).toBe(false)
-    })
-})
-
-describe('sanitizeColumnName', () => {
-    it('should lowercase and replace spaces with underscores', () => {
-        expect(sanitizeColumnName('CLS GRADE AVG')).toBe('cls_grade_avg')
-    })
-
-    it('should collapse multiple underscores', () => {
-        expect(sanitizeColumnName('col  name--here')).toBe('col_name_here')
-    })
-
-    it('should prefix col_ when starting with a digit', () => {
-        expect(sanitizeColumnName('1st_column')).toBe('col_1st_column')
-    })
-
-    it('should prefix col_ when empty after sanitization', () => {
-        expect(sanitizeColumnName('---')).toBe('col_')
-    })
-
-    it('should trim leading and trailing underscores', () => {
-        expect(sanitizeColumnName(' hello ')).toBe('hello')
     })
 })
 

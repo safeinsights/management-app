@@ -335,9 +335,7 @@ describe('CodeReviewClient decision selector', () => {
         await waitForPendingMutations()
 
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
-        const confirm = within(dialog).getByRole('button', { name: 'Approve code' })
-        expect(confirm).toBeDisabled()
-        expect(confirm).toHaveAttribute('data-loading', 'true')
+        expect(within(dialog).getByRole('button', { name: 'Submitting' })).toBeDisabled()
         expect(within(dialog).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
         expect(screen.getByTestId('code-review-submit')).toBeDisabled()
     })

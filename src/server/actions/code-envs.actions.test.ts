@@ -14,7 +14,6 @@ import {
     fetchCodeEnvHistoryAction,
     fetchOrgCodeEnvsAction,
     fetchStarterCodeAction,
-    getSampleDataUploadUrlAction,
     updateOrgCodeEnvAction,
 } from './code-envs.actions'
 import { db } from '@/database'
@@ -36,15 +35,9 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         deleteS3File: vi.fn().mockResolvedValue(undefined),
         deleteFolderContents: vi.fn().mockResolvedValue(undefined),
-        createAthenaDatabase: vi.fn().mockResolvedValue(undefined),
         deleteAthenaDatabase: vi.fn().mockResolvedValue(undefined),
         deleteAllAthenaTables: vi.fn().mockResolvedValue(undefined),
         deleteTestDataBucketPrefix: vi.fn().mockResolvedValue(undefined),
-        copyToTestDataBucket: vi.fn().mockResolvedValue([]),
-        inferColumnsFromCsv: vi.fn().mockResolvedValue([]),
-        createAthenaTable: vi.fn().mockResolvedValue(undefined),
-        testDataBucketName: vi.fn().mockReturnValue(null),
-        createPgDatabase: vi.fn().mockResolvedValue(undefined),
         deletePgDatabase: vi.fn().mockResolvedValue(undefined),
     }
 })
@@ -740,29 +733,6 @@ describe('Code Environment Actions', () => {
 
             expect(await reloadCodeEnv(testing.id)).toMatchObject({ isTesting: false, language: 'PYTHON' })
         })
-    })
-
-    it('createOrgCodeEnvAction with athena does not call createAthenaDatabase in test env', async () => {
-        const { createAthenaDatabase } = await import('@/server/aws')
-        const { org } = await mockSessionWithTestData({ isAdmin: true })
-
-        actionResult(
-            await createOrgCodeEnvAction({
-                orgSlug: org.slug,
-                name: 'Athena Env',
-                identifier: 'athena_env',
-                commandLines: { r: 'test command' },
-                language: 'R',
-                url: testImageRef('example.com/test-url'),
-                starterCodeFileNames: ['test.py'],
-                isTesting: true,
-                settings: { environment: [] },
-                dataSourceType: 'athena',
-                dataSourceIds: [],
-            }),
-        )
-
-        expect(createAthenaDatabase).not.toHaveBeenCalled()
     })
 
     it('createOrgCodeEnvAction creates a code environment with environment variables', async () => {
@@ -1461,11 +1431,5 @@ describe('a refused caller gets no code env content (OTTER-891)', () => {
             fileName: 'confidential-starter.R',
         })
         expectNoContent(result, 'in fetchStarterCodeAction action; cannot view OrgConfig.', seeded)
-    })
-
-    it('getSampleDataUploadUrlAction', async () => {
-        const seeded = await seedOtherOrgEnv()
-        const result = await getSampleDataUploadUrlAction({ codeEnvId: seeded.env.id })
-        expectNoContent(result, 'in getSampleDataUploadUrlAction action; cannot update Org.', seeded)
     })
 })

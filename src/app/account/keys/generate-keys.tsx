@@ -2,7 +2,7 @@
 
 import { useMutation } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { AppModal } from '@/components/modals/app-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { Button, Code, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -14,12 +14,7 @@ import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
 import { fontWeight, semanticColor, type SemanticToken } from '@/theme/tokens'
-import {
-    KEY_RESET_CONFIRM_COLOR,
-    KEY_RESET_MODAL_BODY,
-    KEY_RESET_MODAL_TITLE,
-    KEY_RESET_WARNING,
-} from '@/app/user-key/copy'
+import { KEY_RESET_MODAL_BODY, KEY_RESET_MODAL_TITLE, KEY_RESET_WARNING } from '@/app/user-key/copy'
 
 interface Keys {
     binaryPublicKey: ArrayBuffer
@@ -226,30 +221,20 @@ const ConfirmationModal: FC<{
     })
 
     return (
-        <AppModal
+        <SubmitConfirmationModal
             isOpen={isOpen}
             onClose={onClose}
+            onConfirm={() => saveUserKey()}
+            isSubmitting={isSavingKey}
             title={isRegenerating ? KEY_RESET_MODAL_TITLE : 'Have you stored your security key?'}
-        >
-            <Stack>
-                <Text fz="md" mb="md">
-                    {isRegenerating
-                        ? KEY_RESET_MODAL_BODY
-                        : 'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.'}
-                </Text>
-                <Group>
-                    <Button variant="outline" onClick={onClose}>
-                        Back
-                    </Button>
-                    <Button
-                        color={isRegenerating ? KEY_RESET_CONFIRM_COLOR : undefined}
-                        onClick={() => saveUserKey()}
-                        loading={isSavingKey}
-                    >
-                        {isRegenerating ? 'Yes, replace my key' : 'Yes, I have stored my key'}
-                    </Button>
-                </Group>
-            </Stack>
-        </AppModal>
+            body={
+                isRegenerating
+                    ? KEY_RESET_MODAL_BODY
+                    : 'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.'
+            }
+            confirmLabel={isRegenerating ? 'Yes, replace my key' : 'Yes, I have stored my key'}
+            cancelLabel="Back"
+            variant={isRegenerating ? 'error' : 'default'}
+        />
     )
 }

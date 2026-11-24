@@ -19,6 +19,7 @@ import {
     waitForPendingQueries,
     within,
 } from '@/tests/unit.helpers'
+import { rem } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
@@ -46,6 +47,19 @@ const scanResult = (semgrep: JobScanResult['semgrep'], details: string | null = 
 })
 
 const scanInProgress: JobScanResult = { semgrep: null, details: null, logFile: null }
+
+// happy-dom's ResizeObserver never calls back, so Mantine's overflow check would never run.
+class ImmediateResizeObserver {
+    callback: ResizeObserverCallback
+    constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+    }
+    observe() {
+        this.callback([], this as unknown as ResizeObserver)
+    }
+    unobserve() {}
+    disconnect() {}
+}
 
 async function insertStudyJobFile(
     studyJobId: string,
@@ -282,10 +296,89 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
+    it('caps the expanded summary and scrolls it inside the box, with the toggle outside the scroll area', async () => {
+        await renderSection(fixture)
+        expect(screen.queryByTestId('ai-summary-scroll')).not.toBeInTheDocument()
+
+        await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+        const scroll = screen.getByTestId('ai-summary-scroll')
+        expect(scroll.style.maxHeight).toBe(rem(616))
+        expect(scroll).toContainElement(screen.getByTestId('ai-summary-body'))
+        expect(scroll).not.toContainElement(screen.getByTestId('ai-summary-toggle'))
+    })
+
+    it.each([
+        ['makes the scrolling viewport a tab stop when the summary overflows', 1000, '0'],
+        ['adds no tab stop when the summary fits', 0, null],
+    ])('%s', async (_label, scrollHeight, tabIndex) => {
+        vi.stubGlobal('ResizeObserver', ImmediateResizeObserver)
+        vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
+        try {
+            await renderSection(fixture)
+            await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+            const viewport = within(screen.getByTestId('ai-summary-scroll')).getByRole('region', {
+                name: 'Full AI summary',
+            })
+            expect(viewport).toContainElement(screen.getByTestId('ai-summary-body'))
+            await waitFor(() => expect(viewport.getAttribute('tabindex')).toBe(tabIndex))
+        } finally {
+            // mockReset does not undo a stubbed global, and the rest of the file expects happy-dom's observer.
+            vi.unstubAllGlobals()
+        }
+    })
+
+    it('renders Title Case summary headings in sentence case', async () => {
+        const headedFixture = await setupBaseFixture()
+        await insertStudyReview(
+            headedFixture.job.id,
+            [
+                '## **File Overview**\n\nThe Code Uses R.',
+                '**Data Flow Issues**\n\nText.',
+                '#### Main Data Processing (Main.R)\n\nMore.',
+                '## 1. Data Loading And Cleaning\n\nSteps.',
+                '### Reading Data from the Student File\n\nRows.',
+                '### Reading Data From Google Sheets\n\nSheets.',
+                '### *Variables Used* In The Script\n\nNames.',
+                '### Querying Mars University Data\n\nRows.',
+            ].join('\n\n'),
+        )
+        await renderSection(headedFixture)
+        await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+        expect(screen.getByRole('heading', { name: 'File overview' })).toBeInTheDocument()
+        expect(screen.getByText('Data flow issues')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Main data processing (Main.R)' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: '1. Data loading and cleaning' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Reading data from the student file' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Reading data from Google sheets' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Variables used in the script' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Querying Mars University data' })).toBeInTheDocument()
+        expect(screen.getByText('The Code Uses R.')).toBeInTheDocument()
+    })
+
+    it('leaves sentence-case headings and the skipped-files note as written', async () => {
+        const headedFixture = await setupBaseFixture()
+        await insertStudyReview(
+            headedFixture.job.id,
+            '**This summary does not cover 2 submitted files:**\n\n- `a.R`: too big\n\n## Reading data with Python\n\nText.\n\n## Run in Python\n\nMore.',
+        )
+        await renderSection(headedFixture)
+        await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+        expect(screen.getByText('This summary does not cover 2 submitted files:')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Reading data with Python' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Run in Python' })).toBeInTheDocument()
+    })
+
     it('shows the in-progress spinner while no review row exists yet (still generating)', async () => {
         const noReviewFixture = await setupBaseFixture()
         await renderSection(noReviewFixture)
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
+        const pending = await screen.findByTestId('ai-summary-pending')
+        expect(pending).toHaveTextContent('Generating summary')
+        expect(within(pending).getAllByTestId('ai-summary-skeleton-line')).toHaveLength(2)
+        expect(within(pending).getByRole('status')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-toggle')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-empty')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
@@ -361,6 +454,27 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(error).toHaveTextContent('The AI summary failed to generate.')
         expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+    })
+
+    it('puts Retry below the failure banner, not inside it', async () => {
+        const failedFixture = await setupBaseFixture()
+        await insertFailedStudyReview(failedFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(failedFixture.job)).review
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={failedFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+        )
+
+        const banner = within(await screen.findByTestId('ai-summary-error')).getByRole('alert')
+        const retry = screen.getByTestId('ai-summary-retry')
+        expect(banner).toHaveTextContent('The AI summary failed to generate.')
+        expect(banner).not.toContainElement(retry)
+        expect(banner.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('retrying a failed summary clears the failure row and drops back to pending', async () => {
@@ -632,6 +746,7 @@ describe('SubmittedCodeSection — Security scan results', () => {
 
         expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
         expect(screen.getByTestId('scan-details-toggle')).toHaveTextContent('Hide full scan details')
+        expect(screen.queryByTestId('scan-details-scroll')).not.toBeInTheDocument()
     })
 
     it('shows no details box when the log has nothing past its status line', async () => {

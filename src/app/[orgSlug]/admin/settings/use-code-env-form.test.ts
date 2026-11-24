@@ -10,7 +10,7 @@ import {
     testImageRef,
     waitForPendingMutations,
 } from '@/tests/unit.helpers'
-import { pathForSampleData, pathForStarterCode } from '@/lib/paths'
+import { pathForStarterCode } from '@/lib/paths'
 import { fetchOrgCodeEnvsAction } from '@/server/actions/code-envs.actions'
 import { storeS3File } from '@/server/aws'
 import { fetchFileContents } from '@/server/storage'
@@ -184,60 +184,6 @@ describe('useCodeEnvForm', () => {
         expect(await storedText(starterPath)).toBe('code')
     })
 
-    it('create: uploads sample data when sampleDataPath is set', async () => {
-        const onComplete = vi.fn()
-        const { result } = renderHook(() => useCodeEnvForm(undefined, onComplete), {
-            wrapper: createTestQueryWrapper(),
-        })
-
-        const starterCode = new File(['code'], 'main.py')
-        const sampleFile = new File(['data'], 'sample.csv')
-
-        act(() => {
-            result.current.form.setFieldValue('identifier', 'new_env')
-            result.current.form.setFieldValue('name', 'New Env')
-            result.current.form.setFieldValue('commandLines', { py: 'python %f' })
-            result.current.form.setFieldValue('url', 'python:3.11')
-            result.current.form.setFieldValue('starterCodes', [starterCode])
-            result.current.form.setFieldValue('sampleDataPath', 'data/sample.csv')
-            result.current.setSampleDataFiles([sampleFile])
-        })
-
-        act(() => result.current.onSubmit())
-
-        await waitForPendingMutations()
-        const [created] = await codeEnvsInOrg()
-        const samplePrefix = pathForSampleData({
-            orgSlug: org.slug,
-            codeEnvId: created.id,
-            sampleDataPath: created.sampleDataPath,
-        })
-        expect(await storedText(`${samplePrefix}/sample.csv`)).toBe('data')
-    })
-
-    it('create: does not upload sample data when sampleDataPath is empty', async () => {
-        const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
-            wrapper: createTestQueryWrapper(),
-        })
-
-        const starterCode = new File(['code'], 'main.py')
-        act(() => {
-            result.current.form.setFieldValue('identifier', 'new_env')
-            result.current.form.setFieldValue('name', 'New Env')
-            result.current.form.setFieldValue('commandLines', { py: 'python %f' })
-            result.current.form.setFieldValue('url', 'python:3.11')
-            result.current.form.setFieldValue('starterCodes', [starterCode])
-            result.current.setSampleDataFiles([new File(['data'], 'sample.csv')])
-        })
-
-        act(() => result.current.onSubmit())
-
-        await waitForPendingMutations()
-        const [created] = await codeEnvsInOrg()
-        const samplePrefix = pathForSampleData({ orgSlug: org.slug, codeEnvId: created.id })
-        await expect(storedText(`${samplePrefix}/sample.csv`)).rejects.toThrow()
-    })
-
     it('edit: uploads new starter code and calls update action', async () => {
         const codeEnv = await insertCodeEnv()
         const onComplete = vi.fn()
@@ -286,23 +232,5 @@ describe('useCodeEnvForm', () => {
         await waitForPendingMutations()
         expect((await codeEnvsInOrg())[0].starterCodeFileNames).toEqual(['main.py'])
         expect(await storedText(starterPath)).toBe('existing code')
-    })
-
-    it('edit: uploads sample data files', async () => {
-        const codeEnv = await insertCodeEnv()
-        const { result } = renderHook(() => useCodeEnvForm(codeEnv, vi.fn()), {
-            wrapper: createTestQueryWrapper(),
-        })
-
-        const sampleFile = new File(['data'], 'data.csv')
-        act(() => {
-            result.current.setSampleDataFiles([sampleFile])
-        })
-
-        act(() => result.current.onSubmit())
-
-        await waitForPendingMutations()
-        const samplePrefix = pathForSampleData({ orgSlug: org.slug, codeEnvId: codeEnv.id })
-        expect(await storedText(`${samplePrefix}/data.csv`)).toBe('data')
     })
 })

@@ -1,5 +1,5 @@
 import { useState, type FC } from '@/common'
-import { AppModal } from '@/components/modals/app-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { useSession } from '@/hooks/session'
 import { useUser } from '@clerk/nextjs'
 import { Button, CopyButton, Group, ScrollArea, Stack, Text, Title } from '@mantine/core'
@@ -198,25 +198,24 @@ const BackupCodes = ({ isVisible, enrolled }: BackupCodesProps) => {
 }
 
 const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConfirm, isLoading = false }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your MFA recovery codes?">
-        <Stack>
-            <Text size="md">Make sure you have securely saved your MFA recovery codes.</Text>
-            <Text size="sm" c={semanticColor('error.text')}>
-                <b>Note:</b> Each code can be used once. We will not show these codes again.
-            </Text>
-            <Text size="md" mb="md">
-                Do you want to proceed?
-            </Text>
-            <Group>
-                <Button variant="outline" onClick={onClose} size="md">
-                    Back
-                </Button>
-                <Button loading={isLoading} onClick={onConfirm} size="md">
-                    Go to SafeInsights
-                </Button>
-            </Group>
-        </Stack>
-    </AppModal>
+    <SubmitConfirmationModal
+        isOpen={isOpen}
+        onClose={onClose}
+        onConfirm={onConfirm}
+        isSubmitting={isLoading}
+        title="Have you stored your MFA recovery codes?"
+        body={
+            <Stack>
+                <Text inherit>Make sure you have securely saved your MFA recovery codes.</Text>
+                <Text inherit c={semanticColor('error.text')}>
+                    <b>Note:</b> Each code can be used once. We will not show these codes again.
+                </Text>
+                <Text inherit>Do you want to proceed?</Text>
+            </Stack>
+        }
+        confirmLabel="Go to SafeInsights"
+        cancelLabel="Back"
+    />
 )
 
 export default BackupCodes

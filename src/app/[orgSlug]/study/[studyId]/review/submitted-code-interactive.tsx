@@ -1,30 +1,147 @@
 'use client'
 
-import { Alert, Button, Collapse, Divider, Group, Loader, Stack, Text, Typography } from '@mantine/core'
+import { Alert, Collapse, Divider, Group, Loader, Skeleton, Stack, Text, Typography } from '@mantine/core'
+import { RepeatIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import clsx from 'clsx'
-import { AnalysisPanel, ExpandableDetails } from './analysis-panel'
+import { AnalysisPanel, DetailsBox, ExpandableDetails, TextButton } from './analysis-panel'
 import { SecurityScanPanel, isScanPending } from './security-scan-panel'
-import { useEffect, useState, type ReactNode } from 'react'
-import Markdown, { type Components } from 'react-markdown'
+import { Children, cloneElement, isValidElement, useEffect, useState, type ComponentProps, type ReactNode } from 'react'
+import Markdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { isActionError } from '@/lib/errors'
 import { STUDY_REVIEW_STALE_AFTER_MS, studyReviewState } from '@/lib/study-review'
 import { getJobAnalysisAction, regenerateStudyReviewAction } from '@/server/actions/study-job.actions'
 import type { JobAnalysis, StudyReviewWithMeta } from '@/server/db/queries'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
-// The feedback editor's list classes (globals.css), so summary lists indent like reviewer feedback
-// rather than with Typography's wider defaults.
-const MARKDOWN_LIST_COMPONENTS: Components = {
+// Figma 1995:19067: the expanded summary stops growing at this height and scrolls inside.
+const AI_SUMMARY_EXPANDED_MAX_HEIGHT = 616
+
+// Names that stay capitalized in a sentence-case heading, so they neither prove Title Case nor get lowercased.
+const PROPER_NAMES = new Set([
+    'Python',
+    'Excel',
+    'Google',
+    'Postgres',
+    'Jupyter',
+    'Spark',
+    'Stata',
+    'Julia',
+    'Mars',
+    'University',
+])
+// Title Case styles keep these lowercase too, so they say nothing about how a heading was written.
+const TITLE_CASE_LOWERCASE_WORDS = new Set([
+    'about',
+    'after',
+    'from',
+    'into',
+    'over',
+    'than',
+    'that',
+    'through',
+    'with',
+])
+// Inline code and links keep their text as written.
+const KEEP_AS_WRITTEN = new Set<unknown>(['code', 'a'])
+
+const hasLetter = (word: string) => /[A-Za-z]/.test(word)
+const isRecasable = (word: string) => /^[A-Z][a-z]+$/.test(word) && !PROPER_NAMES.has(word)
+const isSentenceCaseWord = (word: string) => /^[a-z]{4,}$/.test(word) && !TITLE_CASE_LOWERCASE_WORDS.has(word)
+
+// Judges "(Main.R):" by "Main.R", so brackets and punctuation never decide a word's case.
+function splitWord(token: string) {
+    const [, prefix = '', core = '', suffix = ''] = /^([(["']*)(.*?)([)\]"'.,:;!?]*)$/.exec(token) ?? []
+    return { prefix, core, suffix }
+}
+
+function plainText(children: ReactNode): string {
+    return Children.toArray(children)
+        .map((node) => {
+            if (typeof node === 'string') return node
+            if (!isValidElement<{ children?: ReactNode }>(node) || KEEP_AS_WRITTEN.has(node.type)) return ''
+            return plainText(node.props.children)
+        })
+        .join('')
+}
+
+// A sentence-case heading keeps its long words lowercase. The first word ("1." skipped) proves nothing.
+function looksTitleCase(text: string): boolean {
+    const laterWords = text
+        .split(/\s+/)
+        .map((token) => splitWord(token).core)
+        .filter(hasLetter)
+        .slice(1)
+    return laterWords.some(isRecasable) && !laterWords.some(isSentenceCaseWord)
+}
+
+// Skips headings the model already wrote in sentence case, so their proper nouns survive.
+function sentenceCaseChildren(children: ReactNode): ReactNode {
+    if (!looksTitleCase(plainText(children))) return children
+    let isFirstWord = true
+    const recaseToken = (token: string) => {
+        const { prefix, core, suffix } = splitWord(token)
+        if (!hasLetter(core)) return token
+        const keep = isFirstWord || !isRecasable(core)
+        isFirstWord = false
+        return keep ? token : `${prefix}${core.toLowerCase()}${suffix}`
+    }
+    const recase = (node: ReactNode): ReactNode => {
+        if (typeof node === 'string') return node.replace(/\S+/g, recaseToken)
+        if (!isValidElement<{ children?: ReactNode }>(node)) return node
+        if (KEEP_AS_WRITTEN.has(node.type)) {
+            isFirstWord = false
+            return node
+        }
+        return cloneElement(node, undefined, Children.map(node.props.children, recase))
+    }
+    return Children.map(children, recase)
+}
+
+// A paragraph that is nothing but bold text is a heading the model wrote as a bold lead-in.
+function sentenceCaseLeadIn(children: ReactNode): ReactNode {
+    const parts = Children.toArray(children)
+    const [only] = parts
+    if (parts.length !== 1 || !isValidElement<{ children?: ReactNode }>(only) || only.type !== 'strong') {
+        return children
+    }
+    return cloneElement(only, undefined, sentenceCaseChildren(only.props.children))
+}
+
+type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
+
+function sentenceCaseHeading(Tag: HeadingTag) {
+    return function SentenceCaseHeading({ node: _node, children, ...props }: ComponentProps<HeadingTag> & ExtraProps) {
+        return <Tag {...props}>{sentenceCaseChildren(children)}</Tag>
+    }
+}
+
+const AI_SUMMARY_MARKDOWN_COMPONENTS: Components = {
+    // The feedback editor's list classes (globals.css), so summary lists indent like reviewer feedback
+    // rather than with Typography's wider defaults.
     ul: ({ node: _node, className, ...props }) => <ul className={clsx('editable-text-ul', className)} {...props} />,
     ol: ({ node: _node, className, ...props }) => <ol className={clsx('editable-text-ol', className)} {...props} />,
+    p: ({ node: _node, children, ...props }) => <p {...props}>{sentenceCaseLeadIn(children)}</p>,
+    h1: sentenceCaseHeading('h1'),
+    h2: sentenceCaseHeading('h2'),
+    h3: sentenceCaseHeading('h3'),
+    h4: sentenceCaseHeading('h4'),
+    h5: sentenceCaseHeading('h5'),
+    h6: sentenceCaseHeading('h6'),
 }
 
 function AiSummaryContent({ summary }: { summary: string }) {
     return (
-        <ExpandableDetails testId="ai-summary" showLabel="View full AI summary" hideLabel="Hide full AI summary">
+        <ExpandableDetails
+            testId="ai-summary"
+            showLabel="View full AI summary"
+            hideLabel="Hide full AI summary"
+            expandedMaxHeight={AI_SUMMARY_EXPANDED_MAX_HEIGHT}
+            scrollLabel="Full AI summary"
+        >
             <Typography fz="sm">
-                <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_LIST_COMPONENTS}>
+                <Markdown remarkPlugins={[remarkGfm]} components={AI_SUMMARY_MARKDOWN_COMPONENTS}>
                     {summary}
                 </Markdown>
             </Typography>
@@ -101,32 +218,44 @@ function useJobAnalysisPoll(
 
 function AiSummaryPending() {
     return (
-        <Group gap="xs" data-testid="ai-summary-pending">
-            <Loader size="sm" />
-            <Text c="dimmed" size="sm">
-                Generating summary
-            </Text>
-        </Group>
+        <DetailsBox gap="sm" testId="ai-summary-pending">
+            <Stack gap="xs" aria-hidden>
+                <Skeleton height={12} radius="sm" data-testid="ai-summary-skeleton-line" />
+                <Skeleton height={12} radius="sm" width="85%" data-testid="ai-summary-skeleton-line" />
+            </Stack>
+            <Group gap="xxs" role="status">
+                <Loader size={12} color={semanticColor('text.disabled')} />
+                <Text size="sm" fw={fontWeight.semibold} c={semanticColor('text.disabled')}>
+                    Generating summary
+                </Text>
+            </Group>
+        </DetailsBox>
     )
+}
+
+function RetryIcon({ isRetrying }: { isRetrying: boolean }) {
+    if (isRetrying) return <Loader size={14} />
+    return <RepeatIcon size={14} />
 }
 
 function AiSummaryError({ onRetry, isRetrying }: { onRetry: () => void; isRetrying: boolean }) {
     return (
-        <Alert color="red" data-testid="ai-summary-error">
-            <Group justify="space-between" gap="sm" wrap="nowrap">
-                <Text size="sm">The AI summary failed to generate.</Text>
-                <Button
-                    size="compact-sm"
-                    variant="white"
-                    color="red"
-                    onClick={onRetry}
-                    loading={isRetrying}
-                    data-testid="ai-summary-retry"
-                >
-                    Retry
-                </Button>
-            </Group>
-        </Alert>
+        <DetailsBox gap="sm" testId="ai-summary-error">
+            <Alert color="red" icon={<WarningCircleIcon size={20} weight="fill" />}>
+                <Text size="sm" c={semanticColor('text.primary')}>
+                    The AI summary failed to generate.
+                </Text>
+            </Alert>
+            <TextButton
+                onClick={onRetry}
+                testId="ai-summary-retry"
+                disabled={isRetrying}
+                aria-busy={isRetrying}
+                leftSection={<RetryIcon isRetrying={isRetrying} />}
+            >
+                Retry
+            </TextButton>
+        </DetailsBox>
     )
 }
 
@@ -275,7 +404,7 @@ function CollapsibleRest({
             <Stack gap={0}>
                 {expandToggle}
                 <Collapse expanded={expanded}>
-                    <Stack gap="xl">
+                    <Stack gap="lg">
                         <DividedBlocks blocks={blocks} />
                     </Stack>
                 </Collapse>
@@ -294,12 +423,9 @@ function SubmissionDetailBlocks({
     expandToggle?: ReactNode
 }) {
     const { preview, rest } = splitPreviewBlocks(blocks, SUBMISSION_DETAILS_PREVIEW_COUNT)
-    // Figma sets the divider above the collapsed opener tighter (lg) than the gap between blocks (xl).
     return (
-        <Stack gap={detailsExpanded ? 'xl' : 'lg'}>
-            <Stack gap="xl">
-                <DividedBlocks blocks={preview} />
-            </Stack>
+        <Stack gap="lg">
+            <DividedBlocks blocks={preview} />
             <CollapsibleRest
                 isVisible={rest.length > 0}
                 blocks={rest}
