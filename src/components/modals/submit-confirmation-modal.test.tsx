@@ -56,9 +56,11 @@ describe('SubmitConfirmationModal', () => {
         expect(confirmButton('Submit proposal')).toHaveAttribute('data-variant', 'error')
     })
 
-    it("keeps Mantine's default loading treatment when no loading label is given", () => {
+    it('keeps the confirm label beside the spinner when no loading label is given', () => {
         renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting />)
 
-        expect(confirmButton('Submit proposal')).toHaveAttribute('data-loading', 'true')
+        expect(confirmButton('Submit proposal')).toBeDisabled()
+        expect(confirmButton('Submit proposal')).not.toHaveAttribute('data-loading')
+        expect(document.querySelector('[class*="mantine-Loader"]')).toBeInTheDocument()
     })
 })

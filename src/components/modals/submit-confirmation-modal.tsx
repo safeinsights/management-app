@@ -12,29 +12,20 @@ interface SubmitConfirmationModalProps {
     title: string
     body: ReactNode
     confirmLabel: string
-    /** Omit to keep Mantine's default treatment, which covers the label with a loader overlay. */
     confirmLoadingLabel?: string
     variant?: ConfirmVariant
 }
 
-// With a loading label the busy state uses `disabled` plus a `leftSection` spinner rather than
-// Mantine's `loading`, which overlays the Loader on the label (OTTER-691).
+// The busy state uses `disabled` plus a `leftSection` spinner rather than Mantine's `loading`,
+// which overlays the Loader on the label.
 const ConfirmButton: FC<{
     onConfirm: () => void
     isSubmitting: boolean
     confirmLabel: string
     confirmLoadingLabel?: string
     variant: ConfirmVariant
-}> = ({ onConfirm, isSubmitting, confirmLabel, confirmLoadingLabel, variant }) => {
+}> = ({ onConfirm, isSubmitting, confirmLabel, confirmLoadingLabel = confirmLabel, variant }) => {
     const buttonVariant = variant === 'error' ? 'error' : 'filled'
-
-    if (!confirmLoadingLabel) {
-        return (
-            <Button variant={buttonVariant} onClick={onConfirm} loading={isSubmitting}>
-                {confirmLabel}
-            </Button>
-        )
-    }
 
     return (
         <Button
