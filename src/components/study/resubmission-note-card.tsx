@@ -56,6 +56,12 @@ const noteChangeHandler = (noteForm: UseFormReturnType<ResubmitNoteValue>) => (j
     noteForm.setFieldValue(RESUBMISSION_NOTE_FIELD_ID, json)
 }
 
+// A blank note's error waits for the Resubmit click, per the Figma blur rules (OTTER-778, OTTER-964).
+export const validateNoteUnlessBlank = (noteForm: UseFormReturnType<ResubmitNoteValue>) => {
+    if (resubmissionNoteIsBlank(noteForm.getValues().resubmissionNote)) return
+    noteForm.validateField(RESUBMISSION_NOTE_FIELD_ID)
+}
+
 // The error case goes through `isVisible` rather than unmounting: a live region only announces
 // content changes, so remounting one already holding "All changes saved" says nothing (OTTER-675).
 const SaveStatus: FC<{

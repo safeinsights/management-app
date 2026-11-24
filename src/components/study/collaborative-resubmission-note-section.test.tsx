@@ -189,17 +189,17 @@ describe('CollaborativeResubmissionNoteSection placeholder and required rule (OT
         expect(screen.queryByText(/Summarize the modifications made to your initial request/)).not.toBeInTheDocument()
     })
 
-    it('does not flag an empty note until focus leaves the field', async () => {
+    // Only a Resubmit click raises the required error; blurring an empty note must leave it clean.
+    it('does not raise the required error when an empty note is blurred', async () => {
         const user = userEvent.setup()
         renderSingleUserSection()
 
         const editor = await screen.findByLabelText('Resubmission note')
         await user.click(editor)
-        expect(screen.queryByText(REQUIRED_NOTE_ERROR)).not.toBeInTheDocument()
-
         await user.click(screen.getByRole('button', { name: 'Elsewhere' }))
 
-        await waitFor(() => expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument())
+        expect(screen.queryByText(REQUIRED_NOTE_ERROR)).not.toBeInTheDocument()
+        expect(editor).not.toHaveAttribute('aria-invalid', 'true')
     })
 
     // Focusing an empty Lexical root appends a paragraph, which the editor reports as a change.
