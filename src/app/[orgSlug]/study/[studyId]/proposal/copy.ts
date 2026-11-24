@@ -41,6 +41,7 @@ export const submitCodeModalCopy = (orgName: string): ConfirmModalCopy => ({
     title: 'Submit code for review?',
     body: confirmCodeBody(orgName),
     confirmLabel: 'Submit code',
+    confirmLoadingLabel: 'Submitting',
 })
 
 // Submit and resubmit code share a fixed 256px offset, unlike the Set up modal's 25dvh.
@@ -50,4 +51,5 @@ export const resubmitCodeModalCopy = (orgName: string): ConfirmModalCopy => ({
     title: 'Resubmit your code for review?',
     body: confirmCodeBody(orgName),
     confirmLabel: 'Resubmit code',
+    confirmLoadingLabel: 'Resubmitting',
 })

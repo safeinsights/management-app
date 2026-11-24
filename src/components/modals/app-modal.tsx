@@ -1,6 +1,7 @@
-import { Modal, ModalProps } from '@mantine/core'
+import { Modal, ModalProps, Text } from '@mantine/core'
 import React, { useEffect } from 'react'
 import { closeOpenLinkCard, useIsLinkCardOpen } from '@/components/link-hover-card/link-card-interactions'
+import { fontWeight } from '@/theme/tokens'
 
 interface AppModalProps extends Omit<ModalProps, 'opened'> {
     isOpen: boolean
@@ -54,3 +55,10 @@ export function AppModal({
         </Modal>
     )
 }
+
+/** 16px bold rather than the theme's 20px semibold: the code step's confirmations (OTTER-955). */
+export const CompactModalTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <Text span inherit fz="md" fw={fontWeight.bold}>
+        {children}
+    </Text>
+)

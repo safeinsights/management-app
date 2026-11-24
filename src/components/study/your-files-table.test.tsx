@@ -71,7 +71,8 @@ describe('YourFilesTable', () => {
         await user.click(screen.getByRole('button', { name: /delete main\.R/i }))
         expect(onDelete).not.toHaveBeenCalled()
 
-        const dialog = await screen.findByRole('dialog')
+        const dialog = await screen.findByRole('dialog', { name: 'Delete file?' })
+        expect(dialog).toHaveTextContent('main.R will be permanently removed')
         await user.click(within(dialog).getByRole('button', { name: 'Delete file' }))
         expect(onDelete).toHaveBeenCalledWith('main.R')
     })

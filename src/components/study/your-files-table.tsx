@@ -18,8 +18,9 @@ import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/us
 import { LocalDateTime } from '@/components/local-date-time'
 import { DATE_TIME_FORMAT } from '@/lib/dates'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
+import { CODE_MODAL_PLACEMENT } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { MainFileTemplateCopy } from './main-file-template-copy'
-import { semanticColor } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
 const FILE_NAME_MAX_CHARS = 50
@@ -290,6 +291,15 @@ const FileRow: FC<FileRowProps> = ({
     </Table.Tr>
 )
 
+const DeleteFileBody: FC<{ fileName: string }> = ({ fileName }) => (
+    <>
+        <Text span inherit fw={fontWeight.semibold}>
+            {fileName}
+        </Text>{' '}
+        will be permanently removed from your study and cannot be recovered.
+    </>
+)
+
 type YourFilesTableProps = {
     files: TableFile[]
     mainFile: string
@@ -373,9 +383,13 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
                 onClose={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
                 isSubmitting={false}
-                title="Delete file"
-                body={`${pendingDelete ?? ''} will be permanently removed from your study and cannot be recovered.`}
+                title="Delete file?"
+                body={<DeleteFileBody fileName={pendingDelete ?? ''} />}
                 confirmLabel="Delete file"
+                confirmVariant="error"
+                size={440}
+                compactTitle
+                {...CODE_MODAL_PLACEMENT}
             />
         </>
     )

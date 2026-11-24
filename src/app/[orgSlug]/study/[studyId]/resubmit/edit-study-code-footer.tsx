@@ -195,6 +195,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                 isSubmitting={isSubmitting}
                 {...resubmitCodeModalCopy(orgName)}
                 {...CODE_MODAL_PLACEMENT}
+                compactTitle
             />
         </>
     )

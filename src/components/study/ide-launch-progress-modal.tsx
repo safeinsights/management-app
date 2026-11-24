@@ -38,10 +38,18 @@ export const IdeLaunchProgressModal: FC<IdeLaunchProgressModalProps> = ({
     const { value, secondsRemaining } = useTimedProgress(LAUNCH_STEPS, { buildLog, agentLog }, isOpen)
 
     return (
-        <AppModal isOpen={isOpen} onClose={onAbandon} title={MODAL_TITLE}>
+        <AppModal
+            isOpen={isOpen}
+            onClose={onAbandon}
+            title={
+                <Text span inherit fw={fontWeight.bold}>
+                    {MODAL_TITLE}
+                </Text>
+            }
+        >
             <Stack gap="lg">
                 <Stack gap="xxs">
-                    <Text fw={fontWeight.bold}>{HEADING}</Text>
+                    <Text fw={fontWeight.semibold}>{HEADING}</Text>
                     <Text size="sm" c={semanticColor('text.secondary')}>
                         Ready in {minutesRemaining(secondsRemaining)} minutes
                     </Text>
@@ -51,7 +59,7 @@ export const IdeLaunchProgressModal: FC<IdeLaunchProgressModalProps> = ({
                 <Text size="sm">
                     The IDE opens in a new tab. Write and test your code there. Your files sync back to SafeInsights
                     automatically, so you do not need to keep this page open. When you are ready,{' '}
-                    <Text span inherit fw={fontWeight.bold}>
+                    <Text span inherit fw={fontWeight.semibold}>
                         return here to submit your code
                     </Text>{' '}
                     to {dataPartnerName} for review.

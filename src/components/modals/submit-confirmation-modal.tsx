@@ -1,6 +1,6 @@
 import { type FC, type ReactNode } from 'react'
 import { Button, Group, Loader, type ModalProps, Stack, Text } from '@mantine/core'
-import { AppModal } from '@/components/modals/app-modal'
+import { AppModal, CompactModalTitle } from '@/components/modals/app-modal'
 
 interface SubmitConfirmationModalProps extends Pick<ModalProps, 'size' | 'centered' | 'yOffset'> {
     isOpen: boolean
@@ -12,6 +12,14 @@ interface SubmitConfirmationModalProps extends Pick<ModalProps, 'size' | 'center
     confirmLabel: string
     /** Omit to keep Mantine's default treatment, which covers the label with a loader overlay. */
     confirmLoadingLabel?: string
+    confirmVariant?: 'filled' | 'error'
+    compactTitle?: boolean
+}
+
+const ModalTitle: FC<{ title: string; compact: boolean }> = ({ title, compact }) => {
+    if (!compact) return title
+
+    return <CompactModalTitle>{title}</CompactModalTitle>
 }
 
 // With a loading label the busy state uses `disabled` plus a `leftSection` spinner rather than
@@ -21,10 +29,11 @@ const ConfirmButton: FC<{
     isSubmitting: boolean
     confirmLabel: string
     confirmLoadingLabel?: string
-}> = ({ onConfirm, isSubmitting, confirmLabel, confirmLoadingLabel }) => {
+    variant: 'filled' | 'error'
+}> = ({ onConfirm, isSubmitting, confirmLabel, confirmLoadingLabel, variant }) => {
     if (!confirmLoadingLabel) {
         return (
-            <Button onClick={onConfirm} loading={isSubmitting}>
+            <Button variant={variant} onClick={onConfirm} loading={isSubmitting}>
                 {confirmLabel}
             </Button>
         )
@@ -32,6 +41,7 @@ const ConfirmButton: FC<{
 
     return (
         <Button
+            variant={variant}
             onClick={onConfirm}
             disabled={isSubmitting}
             // No explicit color, so the loader greys out in step with the label.
@@ -51,6 +61,8 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     body,
     confirmLabel,
     confirmLoadingLabel,
+    confirmVariant = 'filled',
+    compactTitle = false,
     ...placement
 }) => (
     // X, Escape and outside-click close with Cancel too: left live while Cancel is disabled they
@@ -58,7 +70,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     <AppModal
         isOpen={isOpen}
         onClose={onClose}
-        title={title}
+        title={<ModalTitle title={title} compact={compactTitle} />}
         withCloseButton={!isSubmitting}
         closeOnEscape={!isSubmitting}
         closeOnClickOutside={!isSubmitting}
@@ -75,6 +87,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
                     isSubmitting={isSubmitting}
                     confirmLabel={confirmLabel}
                     confirmLoadingLabel={confirmLoadingLabel}
+                    variant={confirmVariant}
                 />
             </Group>
         </Stack>
