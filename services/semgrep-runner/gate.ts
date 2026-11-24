@@ -97,12 +97,17 @@ function parseManifest(text: string): RulesetManifest | null {
     }
 }
 
-// version.json lists every file, so an upload that stopped halfway, or a file added later, fails here.
-export function evaluateIntegrity(listed: string[], stored: string[]): GateCheck {
+export function missingFiles(listed: string[], stored: string[]): string[] {
     const storedSet = new Set(stored)
+    return listed.filter((path) => !storedSet.has(path))
+}
+
+// version.json lists every file, so an upload that stopped halfway, or a file added later, fails the gate.
+// The scan checks only for missing files (see runScanMode).
+export function evaluateIntegrity(listed: string[], stored: string[]): GateCheck {
     const listedSet = new Set(listed)
     return gateCheck('integrity', [
-        ...listed.filter((path) => !storedSet.has(path)).map((path) => `missing: ${path}`),
+        ...missingFiles(listed, stored).map((path) => `missing: ${path}`),
         ...stored.filter((path) => !listedSet.has(path)).map((path) => `not in version.json: ${path}`),
     ])
 }

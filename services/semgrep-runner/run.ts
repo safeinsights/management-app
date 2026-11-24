@@ -7,6 +7,7 @@ import {
     evaluateIntegrity,
     evaluateRules,
     gateResult,
+    missingFiles,
     readGateVersion,
     skippedChecks,
     testFilePaths,
@@ -119,14 +120,15 @@ function scanFailure(request: ScanRequest, error: RunnerError): ScanResponse {
     }
 }
 
-// The scan reads only the files that version.json lists, so a file added after the gate cannot change its rules.
+// Reads only the files version.json lists and ignores any other: a role that creates versions can add a key
+// to a published one, and failing on it here would block every scan until the next version.
 async function runScanMode(request: ScanRequest, deps: RunnerDeps): Promise<ScanResponse> {
     const { storage, signal } = deps
     if (!storage) throw new Error('scan mode needs the rules bucket configuration')
 
     try {
         const { manifest, storedFiles } = await readGateVersion(storage, request.rulesetVersion, signal)
-        if (!evaluateIntegrity(manifest.files, storedFiles).passed) return scanFailure(request, 'manifest-invalid')
+        if (missingFiles(manifest.files, storedFiles).length > 0) return scanFailure(request, 'manifest-invalid')
 
         return await withWorkspace(async (work) => {
             const prefix = request.submission.prefix.endsWith('/')

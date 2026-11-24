@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { beforeAll, describe, expect, it } from '../../tests/unit.helpers'
 import { s3Available } from '../../tests/s3.helpers'
 import { s3BucketName } from '../../src/server/aws'
@@ -400,14 +400,39 @@ describe.skipIf(!s3Available)('scan mode', () => {
         }
     })
 
-    it('reads no rule file the version.json does not list, so a file added after the gate is not scanned', async () => {
+    it('scans with the listed rules and ignores a file added to the version after the gate', async () => {
         const { request } = await setup({ 'analysis.R': 'x <- 1' }, defaultRules)
         await upload({ [`rulesets/dev/${request.rulesetVersion}/rules/added.yaml`]: 'rules: []' })
-        const fake = fakeSemgrep({ report: cannedReport })
+        const fake = fakeSemgrep({
+            report: cannedReport,
+            onScan: (cwd) => {
+                expect(fs.readdirSync(path.join(cwd, 'rules'))).toEqual(['secrets.yaml'])
+            },
+        })
         const response = await runRequest(request, {
             semgrep: fake.semgrep,
             signal: signal(),
             storage: storage(s3Client().client),
+        })
+
+        expect(response).toMatchObject({ outcome: 'FINDINGS-FOUND', semgrepJson: JSON.stringify(cannedReport) })
+        expect(fake.calls).toHaveLength(1)
+    })
+
+    it('does not run Semgrep when a file that version.json lists is missing', async () => {
+        const { request } = await setup({ 'analysis.R': 'x <- 1' }, defaultRules)
+        const { client } = s3Client()
+        await client.send(
+            new DeleteObjectCommand({
+                Bucket: bucket,
+                Key: `rulesets/dev/${request.rulesetVersion}/rules/secrets.yaml`,
+            }),
+        )
+        const fake = fakeSemgrep({ report: cannedReport })
+        const response = await runRequest(request, {
+            semgrep: fake.semgrep,
+            signal: signal(),
+            storage: storage(client),
         })
 
         expect(response).toMatchObject({ outcome: 'DID-NOT-COMPLETE', error: 'manifest-invalid', semgrepJson: null })
