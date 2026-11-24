@@ -1,15 +1,7 @@
-import {
-    CopyObjectCommand,
-    DeleteObjectCommand,
-    DeleteObjectsCommand,
-    GetObjectCommand,
-    ListObjectsV2Command,
-} from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { Upload } from '@aws-sdk/lib-storage'
 import type { LegalDocumentType } from '@/database/types'
-import { pathForSampleData } from '@/lib/paths'
-import type { MinimalCodeEnvInfo } from '@/lib/types'
 import { Readable } from 'stream'
 import { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo } from '@/lib/types'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
@@ -38,9 +30,6 @@ export const withS3Prefix = (keyOrPrefix: string): string => {
     if (!prefix || keyOrPrefix === prefix || keyOrPrefix.startsWith(prefix)) return keyOrPrefix
     return `${prefix}${keyOrPrefix}`
 }
-
-export const completePathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?: string }) =>
-    `s3://${s3BucketName()}/${withS3Prefix(pathForSampleData(parts))}`
 
 export const storeS3File = async (
     info: MinimalStudyInfo | MinimalJobInfo | MinimalOrgInfo | { legalDocumentType: LegalDocumentType },
@@ -114,29 +103,6 @@ export const deleteFolderContents = async (folderPath: string) => {
     })
 
     await getS3Client().send(deleteCommand)
-}
-
-export const moveFolderContents = async (oldPrefix: string, newPrefix: string) => {
-    const Bucket = s3BucketName()
-    const prefixedOld = withS3Prefix(oldPrefix)
-    const prefixedNew = withS3Prefix(newPrefix)
-    const listedObjects = await getS3Client().send(new ListObjectsV2Command({ Bucket, Prefix: prefixedOld }))
-
-    if (!listedObjects.Contents?.length) return
-
-    for (const obj of listedObjects.Contents) {
-        if (!obj.Key) continue
-        const suffix = obj.Key.slice(prefixedOld.length)
-        const newKey = prefixedNew + suffix
-        await getS3Client().send(new CopyObjectCommand({ Bucket, CopySource: `${Bucket}/${obj.Key}`, Key: newKey }))
-    }
-
-    await getS3Client().send(
-        new DeleteObjectsCommand({
-            Bucket,
-            Delete: { Objects: listedObjects.Contents.map(({ Key }) => ({ Key })) },
-        }),
-    )
 }
 
 export async function fetchS3File(Key: string) {

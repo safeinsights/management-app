@@ -16,8 +16,6 @@ export const AUDITED_CODE_ENV_FIELDS = [
     'url',
     'isTesting',
     'settings',
-    'sampleDataPath',
-    'dataSourceType',
     'starterCodeFileNames',
 ] as const
 

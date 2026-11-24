@@ -5,10 +5,7 @@ import {
     Button,
     Checkbox,
     Divider,
-    FileInput,
-    Flex,
     MultiSelect,
-    Radio,
     Select,
     Stack,
     TextInput,
@@ -21,7 +18,7 @@ import {
     List,
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { ActionSuccessType, DATA_SOURCE_TYPES } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import { EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon, FileArrowUpIcon, UploadIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { fetchOrgCodeEnvsAction } from '@/server/actions/code-envs.actions'
@@ -297,18 +294,8 @@ const lastUsableLockFor = (image: CodeEnv | undefined, isLastUsable: boolean) =>
 }
 
 export function CodeEnvForm({ image, isLastUsable = false, onCompleteAction }: CodeEnvFormProps) {
-    const {
-        form,
-        formErrors,
-        isEditMode,
-        isPending,
-        onSubmit,
-        sampleDataFiles,
-        setSampleDataFiles,
-        starterCodeActions,
-        commandLineActions,
-        envVarActions,
-    } = useCodeEnvForm(image, onCompleteAction)
+    const { form, formErrors, isEditMode, isPending, onSubmit, starterCodeActions, commandLineActions, envVarActions } =
+        useCodeEnvForm(image, onCompleteAction)
     const { options: dataSourceOptions } = useOrgDataSources()
     const { addEnvVar, updateEnvVarName, updateEnvVarValue, removeEnvVar } = envVarActions
     const { setStarterCodes, removeStarterCode } = starterCodeActions
@@ -419,42 +406,6 @@ export function CodeEnvForm({ image, isLastUsable = false, onCompleteAction }: C
                                 <PlusCircleIcon size={16} />
                             </ActionIcon>
                         </Group>
-                    </Stack>
-                </Box>
-                <Divider />
-                <Box>
-                    <Title order={5} mb="xxs">
-                        Example Data
-                    </Title>
-                    <Text size="xs" c="dimmed" mb="sm">
-                        Files available to researchers when they develop in Coder
-                    </Text>
-                    <Stack gap="xs">
-                        <TextInput
-                            label="Data Path"
-                            description="Directory path where files appear in the workspace (e.g. data/)"
-                            placeholder="data/"
-                            {...form.getInputProps('sampleDataPath')}
-                        />
-                        <FileInput
-                            label="Example Data Files"
-                            description={
-                                isEditMode
-                                    ? 'Upload new files to replace the existing example data (optional)'
-                                    : 'Upload example data files for researchers (optional)'
-                            }
-                            placeholder="Select files"
-                            multiple
-                            value={sampleDataFiles}
-                            onChange={setSampleDataFiles}
-                        />
-                        <Radio.Group label="Data Source Type" {...form.getInputProps('dataSourceType')}>
-                            <Flex gap="md">
-                                {Object.entries(DATA_SOURCE_TYPES).map(([value, label]) => (
-                                    <Radio key={value} value={value} label={label} />
-                                ))}
-                            </Flex>
-                        </Radio.Group>
                     </Stack>
                 </Box>
                 <FormErrorSummary isVisible={formErrors.length > 0} errors={formErrors} />
