@@ -3,10 +3,10 @@
 import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { LocalDateTime } from '@/components/local-date-time'
-import { AppModal } from '@/components/modals/app-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { PageHeader } from '@/components/page-header'
 import { fontWeight } from '@/theme/tokens'
-import { KEY_RESET_CONFIRM_COLOR, KEY_RESET_MODAL_BODY, KEY_RESET_MODAL_TITLE, KEY_RESET_WARNING } from './copy'
+import { KEY_RESET_MODAL_BODY, KEY_RESET_MODAL_TITLE, KEY_RESET_WARNING } from './copy'
 
 export type RegenerateKeyViewProps = {
     generatedOn: Date | string
@@ -58,31 +58,16 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 </Group>
             </Stack>
 
-            <ConfirmKeyResetModal onClose={onCloseModal} isOpen={isModalOpen} onConfirmAndClose={onConfirmGenerate} />
+            <SubmitConfirmationModal
+                isOpen={isModalOpen}
+                onClose={onCloseModal}
+                onConfirm={onConfirmGenerate}
+                isSubmitting={false}
+                title={KEY_RESET_MODAL_TITLE}
+                body={KEY_RESET_MODAL_BODY}
+                confirmLabel="Generate new key"
+                variant="error"
+            />
         </Stack>
-    )
-}
-
-const ConfirmKeyResetModal: FC<{
-    onClose: () => void
-    isOpen: boolean
-    onConfirmAndClose: () => void
-}> = ({ onClose, isOpen, onConfirmAndClose }) => {
-    return (
-        <AppModal isOpen={isOpen} onClose={onClose} title={KEY_RESET_MODAL_TITLE}>
-            <Stack>
-                <Text fz="md" mb="md">
-                    {KEY_RESET_MODAL_BODY}
-                </Text>
-                <Group>
-                    <Button variant="outline" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button color={KEY_RESET_CONFIRM_COLOR} onClick={onConfirmAndClose}>
-                        Generate new key
-                    </Button>
-                </Group>
-            </Stack>
-        </AppModal>
     )
 }

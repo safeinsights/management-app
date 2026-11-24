@@ -13,6 +13,7 @@ interface SubmitConfirmationModalProps {
     body: ReactNode
     confirmLabel: string
     confirmLoadingLabel?: string
+    cancelLabel?: string
     variant?: ConfirmVariant
 }
 
@@ -49,6 +50,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     body,
     confirmLabel,
     confirmLoadingLabel,
+    cancelLabel = 'Cancel',
     variant = 'default',
 }) => (
     // X, Escape and outside-click close with Cancel too: left live while Cancel is disabled they
@@ -68,7 +70,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
             <Text size="sm">{body}</Text>
             <Group gap="sm">
                 <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-                    Cancel
+                    {cancelLabel}
                 </Button>
                 <ConfirmButton
                     onConfirm={onConfirm}
