@@ -237,9 +237,7 @@ describe('ProposalReviewView', () => {
             )
 
             expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
-            const confirm = screen.getByRole('button', { name: 'Approve proposal' })
-            expect(confirm).toBeDisabled()
-            expect(confirm).toHaveAttribute('data-loading', 'true')
+            expect(screen.getByRole('button', { name: 'Submitting' })).toBeDisabled()
         })
 
         it('each decision renders its own distinct CTA label', () => {

@@ -1,6 +1,5 @@
 import type { FC, ReactNode } from 'react'
-import { Text } from '@mantine/core'
-import { ReviewConfirmationModal } from '@/components/modals/review-confirmation-modal'
+import { type ConfirmVariant, SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { LabName } from '@/components/study/lab-name'
 import type { Decision } from '@/lib/review-decision'
 
@@ -8,7 +7,7 @@ export type DecisionModalConfig = {
     title: string
     body: (labName: string) => ReactNode
     confirmLabel: string
-    variant: 'default' | 'error'
+    variant: ConfirmVariant
 }
 
 export type DecisionModalContent = Record<Decision, DecisionModalConfig>
@@ -112,16 +111,16 @@ export const DecisionConfirmationModal: FC<DecisionConfirmationModalProps> = ({
     const config = content[decision]
 
     return (
-        <ReviewConfirmationModal
+        <SubmitConfirmationModal
             isOpen={isOpen}
             onClose={onClose}
             onConfirm={onConfirm}
-            isPending={isPending}
+            isSubmitting={isPending}
             title={config.title}
+            body={config.body(labName)}
             confirmLabel={config.confirmLabel}
+            confirmLoadingLabel="Submitting"
             variant={config.variant}
-        >
-            <Text size="md">{config.body(labName)}</Text>
-        </ReviewConfirmationModal>
+        />
     )
 }

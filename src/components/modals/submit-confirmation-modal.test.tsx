@@ -14,7 +14,7 @@ const confirmButton = (name: string | RegExp) => screen.getByRole('button', { na
 
 describe('SubmitConfirmationModal', () => {
     it('renders the title, body and both buttons', () => {
-        renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting={false} />)
+        renderWithProviders(<SubmitConfirmationModal {...props} />)
 
         expect(screen.getByText('Submit your proposal?')).toBeInTheDocument()
         expect(screen.getByText(props.body)).toBeInTheDocument()
@@ -50,9 +50,34 @@ describe('SubmitConfirmationModal', () => {
         })
     })
 
-    it("keeps Mantine's default loading treatment when no loading label is given", () => {
+    it('takes a body of several paragraphs without nesting them in a paragraph', () => {
+        renderWithProviders(
+            <SubmitConfirmationModal
+                {...props}
+                body={
+                    <>
+                        <p>First paragraph.</p>
+                        <p>Second paragraph.</p>
+                    </>
+                }
+            />,
+        )
+
+        expect(screen.getByText('Second paragraph.')).toBeInTheDocument()
+        expect(document.querySelector('p p')).toBeNull()
+    })
+
+    it('styles the confirm button as destructive for the error variant', () => {
+        renderWithProviders(<SubmitConfirmationModal {...props} variant="error" />)
+
+        expect(confirmButton('Submit proposal')).toHaveAttribute('data-variant', 'error')
+    })
+
+    it('keeps the confirm label beside the spinner when no loading label is given', () => {
         renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting />)
 
-        expect(confirmButton('Submit proposal')).toHaveAttribute('data-loading', 'true')
+        expect(confirmButton('Submit proposal')).toBeDisabled()
+        expect(confirmButton('Submit proposal')).not.toHaveAttribute('data-loading')
+        expect(document.querySelector('[class*="mantine-Loader"]')).toBeInTheDocument()
     })
 })

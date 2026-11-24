@@ -404,7 +404,7 @@ function CollapsibleRest({
             <Stack gap={0}>
                 {expandToggle}
                 <Collapse expanded={expanded}>
-                    <Stack gap="xl">
+                    <Stack gap="lg">
                         <DividedBlocks blocks={blocks} />
                     </Stack>
                 </Collapse>
@@ -423,12 +423,9 @@ function SubmissionDetailBlocks({
     expandToggle?: ReactNode
 }) {
     const { preview, rest } = splitPreviewBlocks(blocks, SUBMISSION_DETAILS_PREVIEW_COUNT)
-    // Figma sets the divider above the collapsed opener tighter (lg) than the gap between blocks (xl).
     return (
-        <Stack gap={detailsExpanded ? 'xl' : 'lg'}>
-            <Stack gap="xl">
-                <DividedBlocks blocks={preview} />
-            </Stack>
+        <Stack gap="lg">
+            <DividedBlocks blocks={preview} />
             <CollapsibleRest
                 isVisible={rest.length > 0}
                 blocks={rest}

@@ -353,7 +353,6 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
                 isOpen={pendingDelete !== null}
                 onClose={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
-                isSubmitting={false}
                 title="Delete file"
                 body={`${pendingDelete ?? ''} will be permanently removed from your study and cannot be recovered.`}
                 confirmLabel="Delete file"
