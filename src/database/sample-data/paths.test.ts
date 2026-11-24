@@ -1,12 +1,13 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
-import { pathForLegalDocumentVersion, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
-import { agreementPath, codeFilePath, resultsFilePath, studyJobPath } from './paths'
+import { pathForLegalDocumentVersion, pathForStudy, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
+import { agreementPath, codeFilePath, resultsFilePath, studyJobPath, studyPath } from './paths'
 
 // The seed cannot import @/lib/paths (it pulls in Sentry), so these copies must not drift.
 describe('sample-data paths', () => {
     const info = { orgSlug: 'openstax', studyId: 'study-1', studyJobId: 'job-1' }
 
-    it('matches the app job and code paths', () => {
+    it('matches the app study, job and code paths', () => {
+        expect(studyPath(info)).toBe(pathForStudy(info))
         expect(studyJobPath(info)).toBe(pathForStudyJob(info))
         expect(codeFilePath(info, 'main.py')).toBe(pathForStudyJobCodeFile(info, 'main.py'))
     })

@@ -10,7 +10,7 @@ import { ensureStarterCodePreloadAction } from './workspaces.actions'
 
 /**
  * OTTER-693: the Data Partner's template has to reach the workspace before anyone launches an IDE,
- * so the Submit code page opens on a starred Main.{x} row rather than the empty state.
+ * so the Submit code page opens on a starred template row rather than the empty state.
  *
  * Its own file rather than workspaces.actions.test.ts: that suite mocks @/server/config and
  * @/server/coder per test, and the pre-load needs the real ones to exercise the copy.
@@ -68,35 +68,30 @@ describe('ensureStarterCodePreloadAction', () => {
     const roundJobCount = async (studyId: string) =>
         (await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()).length
 
-    // The card names it after the language, not after whatever the Data Partner uploaded.
-    it.skipIf(!s3Available)('copies the first starter file in as Main.{x} and stars it', async () => {
-        const { study } = await preloadFor('R', ['main.r'])
+    it.skipIf(!s3Available)('copies the first starter file in under its uploaded name and stars it', async () => {
+        const { study } = await preloadFor('R', ['setup.R'])
 
-        await expect(fs.readFile(templatePath(study.id, 'Main.R'), 'utf8')).resolves.toContain('main.r')
-        expect(await mainCodeFileName(study.id)).toBe('Main.R')
+        await expect(fs.readFile(templatePath(study.id, 'setup.R'), 'utf8')).resolves.toContain('setup.R')
+        expect(await mainCodeFileName(study.id)).toBe('setup.R')
         // A round job reads as "Code draft"; only a launch or an upload may open one (OTTER-698).
         expect(await roundJobCount(study.id)).toBe(0)
     })
 
-    it.skipIf(!s3Available)('takes the extension from the code env language', async () => {
-        const { study } = await preloadFor('PYTHON', ['main.py'])
-
-        await expect(fs.readFile(templatePath(study.id, 'Main.py'), 'utf8')).resolves.toBeTruthy()
-        expect(await mainCodeFileName(study.id)).toBe('Main.py')
-    })
-
-    it.skipIf(!s3Available)('leaves any further starter files under their own names', async () => {
-        const { study } = await preloadFor('R', ['main.r', 'helper.r'])
+    // OTTER-1106: the first file used to be renamed Main.R, which a later Main.R then overwrote.
+    it.skipIf(!s3Available)('keeps every starter file under its uploaded name', async () => {
+        const { study } = await preloadFor('R', ['stub.R', 'Main.R'])
         const dir = workspaceDir(study.id)
 
-        await expect(fs.readFile(path.join(dir, 'Main.R'), 'utf8')).resolves.toBeTruthy()
-        await expect(fs.readFile(path.join(dir, 'helper.r'), 'utf8')).resolves.toBeTruthy()
+        await expect(fs.readFile(path.join(dir, 'stub.R'), 'utf8')).resolves.toContain('stub.R')
+        await expect(fs.readFile(path.join(dir, 'Main.R'), 'utf8')).resolves.toContain('Main.R')
+        await expect(fs.readdir(dir)).resolves.toHaveLength(2)
+        expect(await mainCodeFileName(study.id)).toBe('stub.R')
     })
 
     // Repeat page loads must not clobber what is already in the workspace.
     it.skipIf(!s3Available)('does not copy over a workspace that already has files', async () => {
         const { study } = await preloadFor('R', ['main.r'])
-        const template = templatePath(study.id, 'Main.R')
+        const template = templatePath(study.id, 'main.r')
         await fs.writeFile(template, 'researcher edits')
 
         expect(actionResult(await ensureStarterCodePreloadAction({ studyId: study.id }))).toEqual({ preloaded: false })

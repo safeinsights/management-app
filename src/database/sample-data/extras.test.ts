@@ -1,6 +1,6 @@
 import { db, describe, expect, insertTestOrg, it } from '@/tests/unit.helpers'
 import { resolveRefs } from './refs'
-import { FAKE_PEOPLE, PENDING_INVITES, seedExtras } from './extras'
+import { FAKE_PEOPLE, PENDING_INVITES, seedCodeEnvScans, seedExtras } from './extras'
 import { TEST_CODE_ENVS } from '../seeds/1743608138837_test_users'
 
 const refsOrThrow = async () => {
@@ -62,13 +62,13 @@ describe('seedExtras', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        await seedExtras(db, await refsOrThrow())
+        await seedCodeEnvScans(db)
 
         expect(await db.selectFrom('codeScan').select('id').where('codeEnvId', '=', codeEnv.id).execute()).toEqual([])
     })
 
     it('gives each code env of the test-users seed a completed scan', async () => {
-        await seedExtras(db, await refsOrThrow())
+        await seedCodeEnvScans(db)
         const envs = await db
             .selectFrom('orgCodeEnv')
             .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')

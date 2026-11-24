@@ -142,7 +142,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     )
 
     /**
-     * OTTER-693: badges only the pre-loaded Main.{x}. The copy backdates its mtime, so an untouched
+     * OTTER-693: badges only the pre-loaded template. The copy backdates its mtime, so an untouched
      * template sits at or before the round job's createdAt. No job (null, not still loading) means
      * no launch or upload yet, so nothing has touched it (OTTER-698).
      */

@@ -133,7 +133,7 @@ async function seedResearcherProfile(db: Kysely<DB>, refs: SampleRefs) {
 }
 
 // Only the test-users seed's code envs: a made-up passing scan on one QA added hides its pending scan.
-async function seedCodeEnvScans(db: Kysely<DB>) {
+export async function seedCodeEnvScans(db: Kysely<DB>) {
     const unscanned = await db
         .selectFrom('orgCodeEnv')
         .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
@@ -176,5 +176,4 @@ export async function seedExtras(db: Kysely<DB>, refs: SampleRefs) {
     await seedFakePeople(db, refs)
     await seedInvites(db, refs)
     await seedResearcherProfile(db, refs)
-    await seedCodeEnvScans(db)
 }
