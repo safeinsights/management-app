@@ -218,6 +218,39 @@ describe('CodeReviewClient decision selector', () => {
         })
     })
 
+    it('flags the empty feedback field on blur, before any submit click', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await user.click(await screen.findByRole('textbox', { name: 'Code review feedback' }))
+        await user.click(screen.getByTestId('code-evaluation-attention'))
+
+        await waitFor(() => {
+            expect(screen.getByText('Enter your feedback for Rice University.')).toBeInTheDocument()
+        })
+        expect(screen.queryByText('Select an answer for each criterion.')).not.toBeInTheDocument()
+        expect(screen.queryByText('Select an option before submitting.')).not.toBeInTheDocument()
+    })
+
+    it('does not flag the feedback field on blur once it has content', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        const editor = await screen.findByRole('textbox', { name: 'Code review feedback' })
+        await user.click(editor)
+        await setEditorText(editor, 'sample feedback body')
+        await user.click(screen.getByTestId('code-evaluation-attention'))
+
+        expect(screen.queryByText('Enter your feedback for Rice University.')).not.toBeInTheDocument()
+        expect(editor).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
     it('scrolls to and focuses the first flagged field, reading top to bottom', async () => {
         const user = userEvent.setup()
         const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
