@@ -67,7 +67,10 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
         closeOnClickOutside={!isSubmitting}
     >
         <Stack gap="md">
-            <Text size="sm">{body}</Text>
+            {/* A div, so a body can hold its own paragraphs without nesting <p> in <p>. */}
+            <Text size="sm" component="div">
+                {body}
+            </Text>
             <Group gap="sm">
                 <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
                     {cancelLabel}

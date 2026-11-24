@@ -1,9 +1,9 @@
 'use client'
 
-import { AppModal } from '@/components/modals/app-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { useSignIn } from '@clerk/nextjs/legacy'
 import type { SignInResource } from '@clerk/nextjs/types'
-import { Button, Group, Loader, Stack, Text } from '@mantine/core'
+import { Loader } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { PendingReset } from './pending-reset'
@@ -51,20 +51,13 @@ const VerificationModal: FC<{
     onClose: () => void
     onConfirm: () => void
 }> = ({ isOpen, onClose, onConfirm }) => (
-    <AppModal isOpen={isOpen} onClose={onClose} title="Account verification">
-        <Stack gap="xxl">
-            <Text size="md">
-                If this email address is associated with an existing account, you will receive an email verification
-                code to reset your password.
-            </Text>
-            <Group>
-                <Button variant="outline" onClick={onClose} size="md">
-                    Cancel
-                </Button>
-                <Button onClick={onConfirm} size="md">
-                    Enter verification code
-                </Button>
-            </Group>
-        </Stack>
-    </AppModal>
+    <SubmitConfirmationModal
+        isOpen={isOpen}
+        onClose={onClose}
+        onConfirm={onConfirm}
+        isSubmitting={false}
+        title="Account verification"
+        body="If this email address is associated with an existing account, you will receive an email verification code to reset your password."
+        confirmLabel="Enter verification code"
+    />
 )

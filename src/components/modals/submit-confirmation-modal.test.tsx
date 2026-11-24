@@ -50,6 +50,24 @@ describe('SubmitConfirmationModal', () => {
         })
     })
 
+    it('takes a body of several paragraphs without nesting them in a paragraph', () => {
+        renderWithProviders(
+            <SubmitConfirmationModal
+                {...props}
+                isSubmitting={false}
+                body={
+                    <>
+                        <p>First paragraph.</p>
+                        <p>Second paragraph.</p>
+                    </>
+                }
+            />,
+        )
+
+        expect(screen.getByText('Second paragraph.')).toBeInTheDocument()
+        expect(document.querySelector('p p')).toBeNull()
+    })
+
     it('styles the confirm button as destructive for the error variant', () => {
         renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting={false} variant="error" />)
 
