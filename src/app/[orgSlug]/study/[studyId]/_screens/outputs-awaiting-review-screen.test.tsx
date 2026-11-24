@@ -12,6 +12,7 @@ import {
     renderWithProviders,
     requireRawState,
     screen,
+    nodeText,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
@@ -90,7 +91,7 @@ describe('OutputsAwaitingReviewScreen', () => {
         const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
-        expect(alert).toHaveTextContent(copy.body as string)
+        expect(alert).toHaveTextContent(nodeText(copy.body))
         expect(alert).toHaveTextContent('Clinical Lab Network')
         expect(alert).toHaveAttribute('data-variant', 'informative')
     })

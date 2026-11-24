@@ -62,9 +62,7 @@ describe('SubmitConfirmationModal', () => {
         ['Submit code', submitCodeModalCopy, 'Submitting'],
         ['Edit code', resubmitCodeModalCopy, 'Resubmitting'],
     ])('labels the pending %s confirmation', (_page, copy, pendingLabel) => {
-        renderWithProviders(
-            <SubmitConfirmationModal {...props} {...copy('Rice University')} isSubmitting compactTitle />,
-        )
+        renderWithProviders(<SubmitConfirmationModal {...props} {...copy('Rice University')} isSubmitting compact />)
 
         expect(confirmButton(pendingLabel)).toBeDisabled()
     })

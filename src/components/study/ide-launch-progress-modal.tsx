@@ -3,6 +3,7 @@
 import type { FC } from 'react'
 import { Progress, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
+import { OrgName } from '@/components/study/org-name'
 import { useTimedProgress } from '@/hooks/use-timed-progress'
 import { LAUNCH_STEPS } from './launch-progress'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -62,7 +63,7 @@ export const IdeLaunchProgressModal: FC<IdeLaunchProgressModalProps> = ({
                     <Text span inherit fw={fontWeight.semibold}>
                         return here to submit your code
                     </Text>{' '}
-                    to {dataPartnerName} for review.
+                    to <OrgName>{dataPartnerName}</OrgName> for review.
                 </Text>
             </Stack>
         </AppModal>

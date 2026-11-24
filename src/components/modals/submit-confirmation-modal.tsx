@@ -13,7 +13,8 @@ interface SubmitConfirmationModalProps extends Pick<ModalProps, 'size' | 'center
     /** Omit to keep Mantine's default treatment, which covers the label with a loader overlay. */
     confirmLoadingLabel?: string
     confirmVariant?: 'filled' | 'error'
-    compactTitle?: boolean
+    /** The 440px Confirm/md variant's type: 16px bold title over a 14px body (OTTER-955). */
+    compact?: boolean
 }
 
 const ModalTitle: FC<{ title: string; compact: boolean }> = ({ title, compact }) => {
@@ -62,7 +63,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     confirmLabel,
     confirmLoadingLabel,
     confirmVariant = 'filled',
-    compactTitle = false,
+    compact = false,
     ...placement
 }) => (
     // X, Escape and outside-click close with Cancel too: left live while Cancel is disabled they
@@ -70,14 +71,14 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     <AppModal
         isOpen={isOpen}
         onClose={onClose}
-        title={<ModalTitle title={title} compact={compactTitle} />}
+        title={<ModalTitle title={title} compact={compact} />}
         withCloseButton={!isSubmitting}
         closeOnEscape={!isSubmitting}
         closeOnClickOutside={!isSubmitting}
         {...placement}
     >
         <Stack gap="xl">
-            <Text size="md">{body}</Text>
+            <Text size={compact ? 'sm' : 'md'}>{body}</Text>
             <Group>
                 <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
                     Cancel

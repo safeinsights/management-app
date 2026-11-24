@@ -187,9 +187,11 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(
-            await screen.findByText(/You cannot submit code until the required Curious Lab and Partner Enclave/),
-        ).toBeInTheDocument()
+        const lab = await screen.findByText('Curious Lab')
+        expect(lab.parentElement).toHaveTextContent(
+            /You cannot submit code until the required Curious Lab and Partner Enclave signatories/,
+        )
+        expect(screen.getByText('Partner Enclave').style.fontWeight).toBe('var(--si-font-weight-semibold)')
     })
 
     it('tells a party they will be notified when theirs is ready', async () => {

@@ -1,7 +1,7 @@
 import type { FC, ReactNode } from 'react'
 import { Text } from '@mantine/core'
 import { ReviewConfirmationModal } from '@/components/modals/review-confirmation-modal'
-import { LabName } from '@/components/study/lab-name'
+import { OrgName } from '@/components/study/org-name'
 import type { Decision } from '@/lib/review-decision'
 
 export type DecisionModalConfig = {
@@ -18,7 +18,7 @@ export const DECISION_MODAL_CONTENT: DecisionModalContent = {
         title: 'Approve proposal?',
         body: (lab) => (
             <>
-                Your approval and feedback will be sent to <LabName>{lab}</LabName>. You will not be able to make
+                Your approval and feedback will be sent to <OrgName>{lab}</OrgName>. You will not be able to make
                 changes after approving.
             </>
         ),
@@ -29,7 +29,7 @@ export const DECISION_MODAL_CONTENT: DecisionModalContent = {
         title: 'Request revision?',
         body: (lab) => (
             <>
-                Your feedback will be sent to <LabName>{lab}</LabName> so they can update and resubmit. You&apos;ll be
+                Your feedback will be sent to <OrgName>{lab}</OrgName> so they can update and resubmit. You&apos;ll be
                 notified when the revised proposal is ready for review.
             </>
         ),
@@ -40,7 +40,7 @@ export const DECISION_MODAL_CONTENT: DecisionModalContent = {
         title: 'Decline proposal?',
         body: (lab) => (
             <>
-                Your decision and feedback will be sent to <LabName>{lab}</LabName>. Declining ends this study and
+                Your decision and feedback will be sent to <OrgName>{lab}</OrgName>. Declining ends this study and
                 cannot be undone.
             </>
         ),
@@ -56,7 +56,7 @@ export const CODE_DECISION_MODAL_CONTENT: DecisionModalContent = {
         title: 'Approve code?',
         body: (lab) => (
             <>
-                Your approval and feedback will be sent to <LabName>{lab}</LabName>. You will not be able to make
+                Your approval and feedback will be sent to <OrgName>{lab}</OrgName>. You will not be able to make
                 changes after approving.
             </>
         ),
@@ -67,7 +67,7 @@ export const CODE_DECISION_MODAL_CONTENT: DecisionModalContent = {
         title: 'Request revision?',
         body: (lab) => (
             <>
-                Your feedback will be sent to <LabName>{lab}</LabName> so they can update their code and resubmit.
+                Your feedback will be sent to <OrgName>{lab}</OrgName> so they can update their code and resubmit.
                 You&apos;ll be notified when the revised code is ready for review.
             </>
         ),
@@ -78,7 +78,7 @@ export const CODE_DECISION_MODAL_CONTENT: DecisionModalContent = {
         title: 'Decline code?',
         body: (lab) => (
             <>
-                Your decision and feedback will be sent to <LabName>{lab}</LabName>. Declining ends this study and
+                Your decision and feedback will be sent to <OrgName>{lab}</OrgName>. Declining ends this study and
                 cannot be undone.
             </>
         ),

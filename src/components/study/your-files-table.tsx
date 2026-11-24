@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FC } from 'react'
+import { useHover } from '@mantine/hooks'
 import {
     ActionIcon,
     Anchor,
@@ -146,16 +147,17 @@ type FileNameCellProps = {
     fileName: string
     isTemplate: boolean
     dataPartnerName: string
+    isRowHovered: boolean
     onView: (fileName: string) => void
 }
 
-const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => (
+const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, isRowHovered, onView }) => (
     <Group gap="xs" wrap="nowrap">
         <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
             <Anchor
                 component="button"
                 type="button"
-                underline="hover"
+                underline={isRowHovered ? 'always' : 'hover'}
                 c={semanticColor('text.primary')}
                 inherit
                 aria-label={`View ${fileName}`}
@@ -260,36 +262,41 @@ const FileRow: FC<FileRowProps> = ({
     onEdit,
     onDownload,
     onDelete,
-}) => (
-    <Table.Tr>
-        <Table.Td ta="center">
-            <MainFileStar fileName={file.name} isMain={isMain} isEditable={isEditable} onSelect={onSelectMain} />
-        </Table.Td>
-        <Table.Td>
-            <FileNameCell
-                fileName={file.name}
-                isTemplate={isTemplate}
-                dataPartnerName={dataPartnerName}
-                onView={onView}
-            />
-        </Table.Td>
-        <Table.Td>
-            <LastActivityCell activity={file.lastActivity} />
-        </Table.Td>
-        <Table.Td>
-            <FileActions
-                fileName={file.name}
-                isMain={isMain}
-                isEditable={isEditable}
-                canEditInIde={canEditInIde}
-                ideOwnerName={ideOwnerName}
-                onEdit={onEdit}
-                onDownload={onDownload}
-                onDelete={onDelete}
-            />
-        </Table.Td>
-    </Table.Tr>
-)
+}) => {
+    // The design underlines the file name while anywhere on its row is hovered.
+    const { hovered, ref } = useHover<HTMLTableRowElement>()
+    return (
+        <Table.Tr ref={ref}>
+            <Table.Td ta="center">
+                <MainFileStar fileName={file.name} isMain={isMain} isEditable={isEditable} onSelect={onSelectMain} />
+            </Table.Td>
+            <Table.Td>
+                <FileNameCell
+                    fileName={file.name}
+                    isTemplate={isTemplate}
+                    dataPartnerName={dataPartnerName}
+                    isRowHovered={hovered}
+                    onView={onView}
+                />
+            </Table.Td>
+            <Table.Td>
+                <LastActivityCell activity={file.lastActivity} />
+            </Table.Td>
+            <Table.Td>
+                <FileActions
+                    fileName={file.name}
+                    isMain={isMain}
+                    isEditable={isEditable}
+                    canEditInIde={canEditInIde}
+                    ideOwnerName={ideOwnerName}
+                    onEdit={onEdit}
+                    onDownload={onDownload}
+                    onDelete={onDelete}
+                />
+            </Table.Td>
+        </Table.Tr>
+    )
+}
 
 const DeleteFileBody: FC<{ fileName: string }> = ({ fileName }) => (
     <>
@@ -388,7 +395,7 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
                 confirmLabel="Delete file"
                 confirmVariant="error"
                 size={440}
-                compactTitle
+                compact
                 {...CODE_MODAL_PLACEMENT}
             />
         </>

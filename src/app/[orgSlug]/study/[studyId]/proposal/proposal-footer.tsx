@@ -133,6 +133,8 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
                 onConfirm={onSubmit}
                 isSubmitting={isSubmitting}
                 {...modalCopy}
+                size={440}
+                compact
             />
 
             <AppModal size="xl" isOpen={reviewerOpen} onClose={closeReviewer} title="View as reviewer">

@@ -211,7 +211,8 @@ export const StudyCode = ({
                 isSubmitting={ide.isDirectSubmitting}
                 {...submitCodeModalCopy(dataPartnerName)}
                 {...CODE_MODAL_PLACEMENT}
-                compactTitle
+                size={440}
+                compact
             />
         </>
     )

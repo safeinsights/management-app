@@ -2,18 +2,18 @@
 
 import { FC, type ReactNode, useState } from 'react'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
-import { LabName } from '@/components/study/lab-name'
+import { OrgName } from '@/components/study/org-name'
 import type { OutputsDecision } from '@/lib/outputs-review'
 
 export const confirmationBody = (decision: OutputsDecision, labName: string): ReactNode =>
     decision === 'share-outputs' ? (
         <>
-            You are sharing the output files and your feedback with <LabName>{labName}</LabName>. You will not be able
+            You are sharing the output files and your feedback with <OrgName>{labName}</OrgName>. You will not be able
             to make changes after submitting.
         </>
     ) : (
         <>
-            You are sharing your feedback only. The output files will not be shared with <LabName>{labName}</LabName>.
+            You are sharing your feedback only. The output files will not be shared with <OrgName>{labName}</OrgName>.
             You will not be able to make changes after submitting.
         </>
     )

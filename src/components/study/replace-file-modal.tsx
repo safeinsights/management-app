@@ -26,7 +26,7 @@ export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve })
         size={440}
     >
         <Stack gap="xl">
-            <Text size="md">
+            <Text size="sm">
                 A file named{' '}
                 <Text span inherit fw={fontWeight.semibold}>
                     {file?.name}

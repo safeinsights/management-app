@@ -9,7 +9,7 @@ import { CURRENT_USER_INFO_KEY, useSession as useAppSession } from '@/hooks/sess
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import * as RouterMock from 'next-router-mock'
-import { FC, ReactElement, ReactNode, useEffect } from 'react'
+import { FC, ReactElement, ReactNode, isValidElement, useEffect } from 'react'
 import { renderToString } from 'react-dom/server'
 import { vi } from 'vitest'
 import { getMockedLayoutUserInfo } from './layout-user-info'
@@ -143,3 +143,11 @@ export const tableHeader = (title: string) => {
 
 // mantine-datatable makes a sortable header a button.
 export const isSortableHeader = (title: string) => tableHeader(title).getAttribute('role') === 'button'
+
+// Copy helpers return JSX once a name sits in semibold; this reads their text without mounting it.
+export function nodeText(node: ReactNode): string {
+    if (typeof node === 'string' || typeof node === 'number') return String(node)
+    if (Array.isArray(node)) return node.map(nodeText).join('')
+    if (isValidElement<{ children?: ReactNode }>(node)) return nodeText(node.props.children)
+    return ''
+}
