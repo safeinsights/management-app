@@ -1,14 +1,13 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Alert, Divider, Group, Paper, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
+import { Alert, Divider, Group, Paper, Radio, Stack, Text, Tooltip, VisuallyHidden } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionRadio } from '@/components/study/decision-radio'
 import { fieldErrorId, FieldErrorBox, radioGroupAria, useWidgetBlur } from '@/components/form-field'
 import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
-import { InfoTooltip } from '@/components/tooltip'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
     CODE_REVIEW_CRITERIA_KEYS,
@@ -115,7 +114,8 @@ function CriterionLink({ href, testId, children }: { href: string; testId: strin
 }
 
 // A test study has no agreement to open, so the term explains that instead of linking. The tooltip
-// is not in the DOM until hovered, so screen readers get the note from the hidden copy.
+// is not in the DOM until hovered or focused, so screen readers get the note from the hidden copy.
+// Not InfoTooltip: its wrapper span would take the tooltip's aria-describedby instead of the term.
 function AgreementTerm({ isTestStudy }: { isTestStudy: boolean }) {
     if (!isTestStudy) {
         return (
@@ -127,11 +127,18 @@ function AgreementTerm({ isTestStudy }: { isTestStudy: boolean }) {
 
     return (
         <>
-            <InfoTooltip label={TEST_STUDY_NOTE}>
-                <Text span inherit td="underline dashed" data-testid="criteria-agreement-term">
+            <Tooltip label={TEST_STUDY_NOTE} events={{ hover: true, focus: true, touch: true }} multiline maw={250}>
+                <Text
+                    span
+                    inherit
+                    td="underline dashed"
+                    tabIndex={0}
+                    className="mantine-focus-auto"
+                    data-testid="criteria-agreement-term"
+                >
                     Study Agreement
                 </Text>
-            </InfoTooltip>
+            </Tooltip>
             <VisuallyHidden> ({TEST_STUDY_NOTE})</VisuallyHidden>
         </>
     )

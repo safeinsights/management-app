@@ -131,6 +131,24 @@ describe('CodeEvaluationSection', () => {
         )
     })
 
+    it('opens the test study note when the agreements term is reached by Tab, and closes it on Escape', async () => {
+        const user = userEvent.setup()
+        renderSection({ isTestStudy: true })
+
+        within(screen.getByTestId('criteria-row-proposalAlignment')).getAllByRole('radio')[0].focus()
+        await user.tab()
+
+        const term = screen.getByTestId('criteria-agreement-term')
+        expect(term).toHaveFocus()
+        expect(await screen.findByRole('tooltip')).toHaveTextContent(
+            'This is a test study. It does not require a Study Agreement.',
+        )
+        expect(term).toHaveAccessibleDescription('This is a test study. It does not require a Study Agreement.')
+
+        await user.keyboard('{Escape}')
+        await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull())
+    })
+
     it('links the agreements criterion without the test study note for an ordinary study', () => {
         renderSection()
 
