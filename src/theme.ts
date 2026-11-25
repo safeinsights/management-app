@@ -379,16 +379,25 @@ export const theme = createTheme({
             vars: buttonVars,
         },
         // Header keeps its own inline padding so `padding={0}` can flush just the body, e.g. a file preview.
+        // Legal gates lead with the document name, so `legal` centers a large title with no tinted bar.
         Modal: Modal.extend({
             defaultProps: { padding: 'xxl' },
-            styles: {
+            styles: (_theme, props) => ({
                 header: {
                     paddingBlock: 'var(--mantine-spacing-md)',
                     paddingInline: 'var(--mantine-spacing-xxl)',
                     gap: 'var(--mantine-spacing-md)',
                     backgroundColor: semanticColor('surface.sunken'),
+                    ...(props.variant === 'legal'
+                        ? {
+                              justifyContent: 'center',
+                              paddingTop: 'var(--mantine-spacing-xxl)',
+                              paddingBottom: 'var(--mantine-spacing-lg)',
+                              backgroundColor: 'var(--mantine-color-body)',
+                          }
+                        : {}),
                 },
-                body: { padding: 'var(--mb-padding)' },
+                body: { padding: 'var(--mb-padding)', ...(props.variant === 'legal' ? { paddingTop: 0 } : {}) },
                 close: {
                     backgroundColor: semanticColor('icon.light'),
                     color: semanticColor('text.white'),
@@ -400,11 +409,12 @@ export const theme = createTheme({
                 },
                 // Mantine's line-height 1 crams a title that wraps in a narrow modal.
                 title: {
-                    fontSize: 'var(--mantine-font-size-md)',
+                    fontSize: props.variant === 'legal' ? 'var(--mantine-h3-font-size)' : 'var(--mantine-font-size-md)',
                     fontWeight: fontWeight.bold,
                     lineHeight: 'var(--si-line-height-heading)',
+                    ...(props.variant === 'legal' ? { textAlign: 'center' as const } : {}),
                 },
-            },
+            }),
         }),
         // Figma pads accordion content 24/16; Mantine's content box is only reachable through styles.
         Accordion: Accordion.extend({

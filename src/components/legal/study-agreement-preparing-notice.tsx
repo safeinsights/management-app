@@ -1,7 +1,9 @@
 'use client'
 
 import type { FC } from 'react'
+import { Text } from '@mantine/core'
 import { StatusAlert } from '@/components/study/status-alert'
+import { fontWeight } from '@/theme/tokens'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from './require-study-agreement'
 
@@ -15,6 +17,22 @@ type Props = {
     /** Informative sits inside a step card beside its decision banner and omits the notify note. */
     tone?: 'informative' | 'action'
 }
+
+type SignatoriesProps = { consequence: string; researchLabName: string; dataPartnerName: string }
+
+const Signatories: FC<SignatoriesProps> = ({ consequence, researchLabName, dataPartnerName }) => (
+    <>
+        {consequence} until the required{' '}
+        <Text span inherit fw={fontWeight.bold}>
+            {researchLabName}
+        </Text>{' '}
+        and{' '}
+        <Text span inherit fw={fontWeight.bold}>
+            {dataPartnerName}
+        </Text>{' '}
+        signatories have signed the {legalDocumentTypeLabels.SLA}.
+    </>
+)
 
 // Warning rather than info: an approved study with no agreement is now stalled, not merely waiting.
 // A test study is exempt, and reads as `exempt` rather than `none`.
@@ -39,7 +57,13 @@ export const StudyAgreementPreparingNotice: FC<Props> = ({
 
     if (status?.state !== 'none') return null
 
-    const signatories = `${consequence} until the required ${status.researchLabName} and ${status.dataPartnerName} signatories have signed the ${legalDocumentTypeLabels.SLA}.`
+    const signatories = (
+        <Signatories
+            consequence={consequence}
+            researchLabName={status.researchLabName}
+            dataPartnerName={status.dataPartnerName}
+        />
+    )
 
     if (tone === 'informative')
         return (

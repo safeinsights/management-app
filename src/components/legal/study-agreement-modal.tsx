@@ -47,11 +47,12 @@ export const StudyAgreementModal: FC<Props> = ({
                         target="_blank"
                         rel="noreferrer"
                         icon={<ArrowSquareOutIcon size={16} weight="bold" />}
+                        fz="md"
                     >
                         {STUDY_AGREEMENT_LABEL}
                     </LinkWithIcon>{' '}
-                    is now available. Please review before proceeding. You can later access the {STUDY_AGREEMENT_LABEL}{' '}
-                    from the Legal section in your profile.
+                    is now available. Review it before you acknowledge and proceed. You can access it anytime from the
+                    Legal section in your account.
                 </Text>
 
                 <AcknowledgementCheckbox checked={isChecked} onChange={onCheckedChange} label={CHECKBOX_LABEL} />

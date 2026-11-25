@@ -33,6 +33,16 @@ describe('StudyAgreementModal', () => {
         expect(link).toHaveAttribute('target', '_blank')
     })
 
+    it('tells the reader where to find the agreement again', () => {
+        renderModal()
+
+        expect(
+            screen.getByText(
+                /is now available\. Review it before you acknowledge and proceed\. You can access it anytime/,
+            ),
+        ).toHaveTextContent(/from the Legal section in your account\.$/)
+    })
+
     it('keeps Continue disabled until the box is checked', () => {
         renderModal()
         expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()

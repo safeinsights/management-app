@@ -6,6 +6,7 @@ import { db } from '@/database'
 import type { StudyStatus } from '@/database/types'
 import logger from '@/lib/logger'
 import { Routes } from '@/lib/routes'
+import { fontWeight } from '@/theme/tokens'
 import {
     createTestQueryWrapper,
     faker,
@@ -179,7 +180,9 @@ describe('StudyAgreementPreparingNotice', () => {
         renderNotice(study.id)
 
         expect(await screen.findByText('Study Agreement is being prepared')).toBeInTheDocument()
-        expect(screen.getByText(/have signed the Study Agreement\. If you are included/)).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            /have signed the Study Agreement\. If you are included/,
+        )
     })
 
     it('names both signatories, lab first, so the reader knows who is holding it up', async () => {
@@ -187,9 +190,21 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(
-            await screen.findByText(/You cannot submit code until the required Curious Lab and Partner Enclave/),
-        ).toBeInTheDocument()
+        expect(await screen.findByTestId('status-alert')).toHaveTextContent(
+            /You cannot submit code until the required Curious Lab and Partner Enclave signatories/,
+        )
+    })
+
+    it('sets the signatory names apart from the sentence around them', async () => {
+        const { study } = await arrangeStudyForCurrentUser()
+
+        renderNotice(study.id)
+
+        expect(await screen.findByText('Curious Lab')).toHaveAttribute(
+            'style',
+            expect.stringContaining(fontWeight.bold),
+        )
+        expect(screen.getByText('Partner Enclave')).toHaveAttribute('style', expect.stringContaining(fontWeight.bold))
     })
 
     it('tells a party they will be notified when theirs is ready', async () => {
@@ -197,9 +212,9 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(
-            await screen.findByText(/you will be notified when your Study Agreement is ready for acknowledgement\.$/),
-        ).toBeInTheDocument()
+        expect(await screen.findByTestId('status-alert')).toHaveTextContent(
+            /you will be notified when your Study Agreement is ready for acknowledgement\.$/,
+        )
     })
 
     it('drops the notify note in the informative tone', async () => {
@@ -209,7 +224,7 @@ describe('StudyAgreementPreparingNotice', () => {
 
         expect(await screen.findByTestId('status-alert')).toHaveAttribute('data-variant', 'informative')
         expect(screen.getByText('Study Agreement is being prepared')).toBeInTheDocument()
-        expect(screen.getByText(/have signed the Study Agreement\.$/)).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(/have signed the Study Agreement\.$/)
         expect(screen.queryByText(/you will be notified/)).toBeNull()
     })
 
