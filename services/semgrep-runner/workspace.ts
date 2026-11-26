@@ -96,18 +96,20 @@ export type PrefixDownload = {
     include?: (relative: string) => boolean
 }
 
-async function listKeys(s3: S3Client, download: PrefixDownload): Promise<string[]> {
+export type PrefixListing = Pick<PrefixDownload, 'bucket' | 'prefix' | 'signal' | 'expectedBucketOwner'>
+
+export async function listPrefixKeys(s3: S3Client, listing: PrefixListing): Promise<string[]> {
     const keys: string[] = []
     let ContinuationToken: string | undefined
     do {
         const page = await s3.send(
             new ListObjectsV2Command({
-                Bucket: download.bucket,
-                Prefix: download.prefix,
+                Bucket: listing.bucket,
+                Prefix: listing.prefix,
                 ContinuationToken,
-                ExpectedBucketOwner: download.expectedBucketOwner,
+                ExpectedBucketOwner: listing.expectedBucketOwner,
             }),
-            { abortSignal: download.signal },
+            { abortSignal: listing.signal },
         )
         for (const object of page.Contents ?? []) if (object.Key) keys.push(object.Key)
         ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined
@@ -146,7 +148,7 @@ export const keyPath = (key: string, prefix: string) =>
 export async function downloadPrefix(s3: S3Client, download: PrefixDownload): Promise<number> {
     let keys: string[]
     try {
-        keys = await listKeys(s3, download)
+        keys = await listPrefixKeys(s3, download)
     } catch (error) {
         throw new RunnerFailure(download.failure, { cause: error })
     }
@@ -160,6 +162,18 @@ export async function downloadPrefix(s3: S3Client, download: PrefixDownload): Pr
     download.signal.throwIfAborted()
     await forEachLimited(files, DOWNLOAD_CONCURRENCY, ({ key, relative }) => downloadKey(s3, download, key, relative))
     return files.length
+}
+
+/** Writes the listed files under the prefix into dir, keyed by their path below the prefix. */
+export async function downloadFiles(s3: S3Client, download: PrefixDownload, relatives: string[]): Promise<number> {
+    for (const relative of relatives) safeJoin(download.dir, relative)
+    if (!distinctPaths(relatives.map((relative) => ({ path: relative })))) throw new RunnerFailure('workspace-failed')
+
+    download.signal.throwIfAborted()
+    await forEachLimited(relatives, DOWNLOAD_CONCURRENCY, (relative) =>
+        downloadKey(s3, download, `${download.prefix}${relative}`, relative),
+    )
+    return relatives.length
 }
 
 const DOWNLOAD_CONCURRENCY = 16

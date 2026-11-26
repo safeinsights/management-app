@@ -1,19 +1,22 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { describe, expect, it } from '../../tests/unit.helpers'
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { beforeAll, describe, expect, it } from '../../tests/unit.helpers'
 import { s3Available } from '../../tests/s3.helpers'
 import { s3BucketName } from '../../src/server/aws'
 import type { RulesetStorage } from './config.ts'
 import {
-    rulesetRulesPrefix,
+    rulesetVersionPrefix,
+    type GateRequest,
+    type RulesetManifest,
     type ScanRequest,
     type SemgrepFinding,
     type SemgrepOutput,
     type TestRequest,
 } from './protocol.ts'
 import { MAX_RESPONSE_BYTES, responseBytes } from './response-fit.ts'
+import { REGRESSION_FINDINGS } from './gate.ts'
 import { runRequest } from './run.ts'
 import {
     SEMGREP_BIN,
@@ -31,8 +34,22 @@ type FakeSemgrep = {
     fixture?: string
     testCode?: number
     testStdout?: string
+    validateCode?: number
+    validateStdout?: string
     onScan?: (cwd: string) => Partial<CommandResult> | void
 }
+
+// One finding for each regression the gate asserts, as Semgrep reports it under notebooks/.
+const regressionFindings = (): SemgrepFinding[] =>
+    REGRESSION_FINDINGS.map(([file, line, rule]) => ({
+        check_id: `rules.${rule}`,
+        path: `notebooks/${file}`,
+        start: { line: line ?? 1 },
+        extra: { severity: 'ERROR', message: rule },
+    }))
+
+const isValidate = (invocation: CommandInvocation) => invocation.args.includes('--validate')
+const isScan = (invocation: CommandInvocation) => invocation.args[0] === 'scan' && !isValidate(invocation)
 
 const fixture = (name: string) =>
     fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', name), 'utf-8')
@@ -47,20 +64,23 @@ function fakeSemgrep({
     fixture: name = 'tests-pass.json',
     testCode = 0,
     testStdout,
+    validateCode = 0,
+    validateStdout = '{"errors":[]}',
     onScan,
 }: FakeSemgrep = {}) {
     const calls: Call[] = []
     const semgrep = async (invocation: CommandInvocation, { cwd }: { cwd: string }): Promise<CommandResult> => {
         calls.push({ invocation, cwd })
         const result = { code: 0, stdout: '', stderr: '', aborted: false }
-        if (invocation.args[0] !== 'scan') {
+        if (isValidate(invocation)) return { ...result, code: validateCode, stdout: validateStdout }
+        if (!isScan(invocation)) {
             return { ...result, code: testCode, stdout: testStdout ?? asPrinted(fixture(name), cwd) }
         }
         const output = invocation.args[invocation.args.indexOf('--output') + 1]
         if (report !== undefined) fs.writeFileSync(output, typeof report === 'string' ? report : JSON.stringify(report))
         return { ...result, ...onScan?.(cwd) }
     }
-    return { semgrep, calls, scanCall: () => calls.find((c) => c.invocation.args[0] === 'scan')! }
+    return { semgrep, calls, scanCall: () => calls.find((c) => isScan(c.invocation))! }
 }
 
 function finding(file: string, line: number, severity = 'ERROR', rule = 'secret-github-token'): SemgrepFinding {
@@ -262,34 +282,34 @@ describe('test mode', () => {
 })
 
 // SeaweedFS stands in for S3; the S3 client middleware records what the runner sends.
+type Sent = { command?: string; input: Record<string, unknown> }
+
+function s3Client({ onGetObject, extraKeys = [] }: { onGetObject?: () => void; extraKeys?: string[] } = {}) {
+    const client = new S3Client({ region: 'us-east-1', forcePathStyle: true, endpoint: process.env.S3_ENDPOINT })
+    const sent: Sent[] = []
+    client.middlewareStack.add(
+        (next, context) => async (args) => {
+            const input = args.input as Record<string, unknown>
+            sent.push({ command: context.commandName, input: { ...input } })
+            if (context.commandName === 'GetObjectCommand') onGetObject?.()
+            // SeaweedFS has no account owner; the assertions are on what the runner sends.
+            delete input.ExpectedBucketOwner
+            const result = await next(args)
+            const output = result.output as { Contents?: { Key?: string }[] }
+            if (context.commandName === 'ListObjectsV2Command' && !String(input.Prefix).startsWith('rulesets/')) {
+                output.Contents = [...(output.Contents ?? []), ...extraKeys.map((Key) => ({ Key }))]
+            }
+            return result
+        },
+        { step: 'initialize' },
+    )
+    return { client, sent }
+}
+
 describe.skipIf(!s3Available)('scan mode', () => {
     const bucket = s3BucketName()
     const owner = '432772479668'
     let unique = 0
-
-    type Sent = { command?: string; input: Record<string, unknown> }
-
-    function s3Client({ onGetObject, extraKeys = [] }: { onGetObject?: () => void; extraKeys?: string[] } = {}) {
-        const client = new S3Client({ region: 'us-east-1', forcePathStyle: true, endpoint: process.env.S3_ENDPOINT })
-        const sent: Sent[] = []
-        client.middlewareStack.add(
-            (next, context) => async (args) => {
-                const input = args.input as Record<string, unknown>
-                sent.push({ command: context.commandName, input: { ...input } })
-                if (context.commandName === 'GetObjectCommand') onGetObject?.()
-                // SeaweedFS has no account owner; the assertions are on what the runner sends.
-                delete input.ExpectedBucketOwner
-                const result = await next(args)
-                const output = result.output as { Contents?: { Key?: string }[] }
-                if (context.commandName === 'ListObjectsV2Command' && !String(input.Prefix).startsWith('rulesets/')) {
-                    output.Contents = [...(output.Contents ?? []), ...extraKeys.map((Key) => ({ Key }))]
-                }
-                return result
-            },
-            { step: 'initialize' },
-        )
-        return { client, sent }
-    }
 
     async function upload(files: Record<string, string>) {
         const { client } = s3Client()
@@ -301,11 +321,22 @@ describe.skipIf(!s3Available)('scan mode', () => {
     async function setup(submission: Record<string, string>, rules: Record<string, string>) {
         const id = `${Date.now()}-${++unique}`
         const prefix = `semgrep-runner-test-${id}/code`
-        const version = `test-${id}`
+        const version = `v${100_000_000 + ((Date.now() * 10 + unique) % 899_999_999)}`
         const ruleset = `rulesets/dev/${version}`
+        const manifest: RulesetManifest = {
+            schemaVersion: 1,
+            version,
+            env: 'dev',
+            createdAt: new Date().toISOString(),
+            author: { userId: null, name: 'test' },
+            changeNote: 'test version',
+            source: null,
+            files: Object.keys(rules),
+        }
         await upload({
             ...Object.fromEntries(Object.entries(submission).map(([k, v]) => [`${prefix}/${k}`, v])),
             ...Object.fromEntries(Object.entries(rules).map(([k, v]) => [`${ruleset}/${k}`, v])),
+            [`${ruleset}/version.json`]: JSON.stringify(manifest),
         })
         const request: ScanRequest = { mode: 'scan', submission: { bucket, prefix }, rulesetVersion: version }
         return { request, prefix }
@@ -326,11 +357,6 @@ describe.skipIf(!s3Available)('scan mode', () => {
             {
                 'rules/secrets.yaml': 'rules: []',
                 'rules/nested/python.yml': 'rules: []',
-                'rules/README.md': 'notes',
-                'rules/Secrets.YAML': 'not loaded by Semgrep',
-                'rules/secrets.test.yaml': 'a fixture',
-                'rules/.hidden.yaml': 'not fixture-tested',
-                'rules/.dir/hidden.yaml': 'not fixture-tested',
                 'tests/secrets.yaml': 'not a rule',
             },
         )
@@ -369,12 +395,51 @@ describe.skipIf(!s3Available)('scan mode', () => {
         for (const { command, input } of rulesCalls) {
             expect(input.ExpectedBucketOwner).toBe(owner)
             if (command === 'ListObjectsV2Command') {
-                expect(input.Prefix).toBe(rulesetRulesPrefix('dev', request.rulesetVersion))
+                expect(input.Prefix).toBe(rulesetVersionPrefix('dev', request.rulesetVersion))
             }
         }
     })
 
-    it('does not run Semgrep on an empty ruleset', async () => {
+    it('scans with the listed rules and ignores a file added to the version after the gate', async () => {
+        const { request } = await setup({ 'analysis.R': 'x <- 1' }, defaultRules)
+        await upload({ [`rulesets/dev/${request.rulesetVersion}/rules/added.yaml`]: 'rules: []' })
+        const fake = fakeSemgrep({
+            report: cannedReport,
+            onScan: (cwd) => {
+                expect(fs.readdirSync(path.join(cwd, 'rules'))).toEqual(['secrets.yaml'])
+            },
+        })
+        const response = await runRequest(request, {
+            semgrep: fake.semgrep,
+            signal: signal(),
+            storage: storage(s3Client().client),
+        })
+
+        expect(response).toMatchObject({ outcome: 'FINDINGS-FOUND', semgrepJson: JSON.stringify(cannedReport) })
+        expect(fake.calls).toHaveLength(1)
+    })
+
+    it('does not run Semgrep when a file that version.json lists is missing', async () => {
+        const { request } = await setup({ 'analysis.R': 'x <- 1' }, defaultRules)
+        const { client } = s3Client()
+        await client.send(
+            new DeleteObjectCommand({
+                Bucket: bucket,
+                Key: `rulesets/dev/${request.rulesetVersion}/rules/secrets.yaml`,
+            }),
+        )
+        const fake = fakeSemgrep({ report: cannedReport })
+        const response = await runRequest(request, {
+            semgrep: fake.semgrep,
+            signal: signal(),
+            storage: storage(client),
+        })
+
+        expect(response).toMatchObject({ outcome: 'DID-NOT-COMPLETE', error: 'manifest-invalid', semgrepJson: null })
+        expect(fake.calls).toHaveLength(0)
+    })
+
+    it('does not run Semgrep on a version without rule files', async () => {
         const { request } = await setup({ 'analysis.R': 'x <- 1' }, { 'tests/secrets.yaml': 'not a rule' })
         const fake = fakeSemgrep({ report: cannedReport })
         const response = await runRequest(request, {
@@ -383,7 +448,7 @@ describe.skipIf(!s3Available)('scan mode', () => {
             storage: storage(s3Client().client),
         })
 
-        expect(response).toMatchObject({ outcome: 'DID-NOT-COMPLETE', error: 'ruleset-empty', semgrepJson: null })
+        expect(response).toMatchObject({ outcome: 'DID-NOT-COMPLETE', error: 'manifest-invalid', semgrepJson: null })
         expect(response.log).toBe('Semgrep Scan: scan did not complete')
         expect(fake.calls).toHaveLength(0)
     })
@@ -510,5 +575,163 @@ describe.skipIf(!s3Available)('scan mode', () => {
         })
         expect(response.log.split('\n')[0]).toBe('Semgrep Scan: findings found')
         expect(responseBytes(response)).toBeLessThanOrEqual(MAX_RESPONSE_BYTES)
+    })
+})
+
+describe.skipIf(!s3Available)('gate mode', () => {
+    const owner = '432772479668'
+    let bucket: string
+    let unique = 0
+
+    beforeAll(() => {
+        bucket = s3BucketName()
+    })
+
+    const storage = (client: S3Client): RulesetStorage => ({
+        s3: client,
+        rulesBucket: bucket,
+        rulesetEnv: 'dev',
+        rulesBucketOwner: owner,
+    })
+
+    const versionFiles = {
+        'rules/secrets.yaml': 'rules: []',
+        'tests/secrets.r': 'token <- "x"',
+        'tests/corpus/analysis.R': 'mean(x)',
+    }
+
+    // The local bucket outlives a run, so each test takes a version number no earlier run used.
+    async function setup({
+        files = versionFiles,
+        listed = Object.keys(versionFiles),
+        manifestVersion,
+    }: { files?: Record<string, string>; listed?: string[]; manifestVersion?: string } = {}) {
+        const version = `v${100_000_000 + ((Date.now() * 10 + ++unique) % 899_999_999)}`
+        const manifest: RulesetManifest = {
+            schemaVersion: 1,
+            version: manifestVersion ?? version,
+            env: 'dev',
+            createdAt: new Date().toISOString(),
+            author: { userId: null, name: 'test' },
+            changeNote: 'test version',
+            source: null,
+            files: listed,
+        }
+        const prefix = rulesetVersionPrefix('dev', version)
+        const { client } = s3Client()
+        const objects = { ...files, 'version.json': JSON.stringify(manifest) }
+        for (const [key, Body] of Object.entries(objects)) {
+            await client.send(new PutObjectCommand({ Bucket: bucket, Key: `${prefix}${key}`, Body }))
+        }
+        const request: GateRequest = { mode: 'gate', rulesetVersion: version }
+        return request
+    }
+
+    it('runs --validate, the fixture test and the coverage scan on the downloaded version', async () => {
+        const request = await setup()
+        const { client, sent } = s3Client()
+        const fake = fakeSemgrep({
+            report: {
+                results: regressionFindings(),
+                errors: [],
+                paths: { scanned: ['src/secrets.r', 'src/corpus/analysis.R'] },
+            },
+            onScan: (cwd) => {
+                expect(fs.readdirSync(path.join(cwd, 'rules'))).toEqual(['secrets.yaml'])
+                expect(fs.readFileSync(path.join(cwd, 'src/corpus/analysis.R'), 'utf-8')).toBe('mean(x)')
+                expect(fs.existsSync(path.join(cwd, 'src/version.json'))).toBe(false)
+            },
+        })
+        const response = await runRequest(request, {
+            semgrep: fake.semgrep,
+            signal: signal(),
+            storage: storage(client),
+        })
+
+        expect(response).toEqual({
+            mode: 'gate',
+            rulesetVersion: request.rulesetVersion,
+            passed: true,
+            checks: ['integrity', 'rules', 'fixtures', 'coverage'].map((name) => ({
+                name,
+                passed: true,
+                failures: [],
+            })),
+        })
+        expect(fake.calls).toHaveLength(3)
+        fake.calls.forEach(expectLocalRulesOnly)
+        const validate = fake.calls.find((c) => isValidate(c.invocation))!
+        expect(validate.invocation.args).toEqual([
+            'scan',
+            '--validate',
+            '--json',
+            '--metrics=off',
+            '--disable-version-check',
+            '--config',
+            `${validate.cwd}/rules`,
+        ])
+        expect(fs.existsSync(validate.cwd)).toBe(false)
+        for (const { input } of sent) expect(input.ExpectedBucketOwner).toBe(owner)
+    })
+
+    it('returns the failing checks when --validate rejects a rule', async () => {
+        const request = await setup()
+        const fake = fakeSemgrep({
+            report: { results: [], errors: [] },
+            validateCode: 7,
+            validateStdout: JSON.stringify({ errors: [{ type: 'InvalidRuleSchemaError', message: 'no message' }] }),
+        })
+        const response = await runRequest(request, {
+            semgrep: fake.semgrep,
+            signal: signal(),
+            storage: storage(s3Client().client),
+        })
+
+        expect(response.passed).toBe(false)
+        expect(response.checks.find((c) => c.name === 'rules')).toEqual({
+            name: 'rules',
+            passed: false,
+            failures: ['InvalidRuleSchemaError: no message'],
+        })
+    })
+
+    it('fails integrity without running Semgrep when the version holds a file version.json does not list', async () => {
+        const request = await setup({ files: { ...versionFiles, 'tests/extra.r': 'x' } })
+        const fake = fakeSemgrep({ report: cannedReport })
+        const response = await runRequest(request, {
+            semgrep: fake.semgrep,
+            signal: signal(),
+            storage: storage(s3Client().client),
+        })
+
+        expect(response.passed).toBe(false)
+        expect(response.checks[0]).toEqual({
+            name: 'integrity',
+            passed: false,
+            failures: ['not in version.json: tests/extra.r'],
+        })
+        expect(response.checks.slice(1).every((c) => c.skipped)).toBe(true)
+        expect(fake.calls).toHaveLength(0)
+    })
+
+    it('returns manifest-invalid for a manifest of another version and for a missing version', async () => {
+        const request = await setup({ manifestVersion: 'v1' })
+        const fake = fakeSemgrep({ report: cannedReport })
+        const run = (rulesetVersion: string) =>
+            runRequest(
+                { mode: 'gate', rulesetVersion },
+                { semgrep: fake.semgrep, signal: signal(), storage: storage(s3Client().client) },
+            )
+
+        for (const response of [await run(request.rulesetVersion), await run('v999999999')]) {
+            expect(response).toEqual({
+                mode: 'gate',
+                rulesetVersion: response.rulesetVersion,
+                passed: false,
+                checks: [],
+                error: 'manifest-invalid',
+            })
+        }
+        expect(fake.calls).toHaveLength(0)
     })
 })

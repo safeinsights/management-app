@@ -184,6 +184,9 @@ const startJob = async (message: JobMessage) => {
 export const onStudyReviewRequested = (payload: JobPayload<'study-review'>) =>
     startJob({ job: 'study-review', payload })
 
+export const onSemgrepRulesetChangeRequested = (payload: JobPayload<'semgrep-ruleset-change'>) =>
+    startJob({ job: 'semgrep-ruleset-change', payload })
+
 // Queued on the commit path, never from after(): once the response is sent a Lambda freezes, so a
 // send scheduled there waits for the instance's next request or is lost (OTTER-855). Outside a
 // transaction the caller awaits it, so the message is out before the route answers.

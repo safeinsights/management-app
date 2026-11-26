@@ -2,17 +2,19 @@
 // runner in the Lambda emulator, prints the response JSON on stdout and a summary on stderr.
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type { RunnerResponse, TestResponse } from '../protocol.ts'
+import type { GateResponse, ScanResponse, TestResponse } from '../protocol.ts'
 
 // The runner's own copy inside the image, so this script picks rule files exactly as the runner does.
 const PROTOCOL_IN_IMAGE = '/var/task/services/semgrep-runner/protocol.ts'
 const { isRuleFile } = (await import(PROTOCOL_IN_IMAGE)) as { isRuleFile: (file: string) => boolean }
 
 const [mode, host] = process.argv.slice(2)
+// The version run-local stages in SeaweedFS (see stage.ts and run-local).
+const LOCAL_VERSION = 'v1'
 const MAX_REQUEST_BYTES = 6 * 1024 * 1024
 
 type FunctionError = { errorType?: string; errorMessage?: string }
-type Reply = RunnerResponse & FunctionError
+type Reply = (ScanResponse | TestResponse | GateResponse) & FunctionError
 
 function readTree(root: string) {
     return fs
@@ -27,8 +29,9 @@ function readTree(root: string) {
 
 function buildRequest() {
     if (mode === 'scan') {
-        return { mode: 'scan', submission: { bucket: 'local', prefix: 'submission' }, rulesetVersion: 'local' }
+        return { mode: 'scan', submission: { bucket: 'local', prefix: 'submission' }, rulesetVersion: LOCAL_VERSION }
     }
+    if (mode === 'gate') return { mode: 'gate', rulesetVersion: LOCAL_VERSION }
     const rules = readTree('/in/rules').filter((file) => isRuleFile(file.path))
     const files = readTree('/in/files')
     if (!rules.length)
@@ -67,11 +70,27 @@ function testLines(response: TestResponse, parts: string[], seconds: string): st
     ]
 }
 
+// A gate reply carries a verdict and its checks, not an outcome or a reviewer log.
+function gateLines(response: GateResponse, seconds: string): string[] {
+    const parts = ['mode gate', response.passed ? 'passed' : 'failed']
+    if (response.error) parts.push(`error ${response.error}`)
+    const passed = response.checks.filter((check) => check.passed).length
+    parts.push(`checks ${passed}/${response.checks.length} passed`)
+    return [
+        `${parts.join(', ')}, ${seconds}`,
+        ...response.checks.flatMap((check) => [
+            `  ${check.passed ? 'pass' : 'fail'} ${check.name}${check.skipped ? ' (skipped)' : ''}`,
+            ...check.failures.map((failure) => `    ${failure}`),
+        ]),
+    ]
+}
+
 function summarize(response: Reply, ms: number): string[] {
     const seconds = `${(ms / 1000).toFixed(1)} s`
     if (response.errorType || response.errorMessage) {
         return [`Function error after ${seconds}: ${response.errorType}`, String(response.errorMessage)]
     }
+    if (response.mode === 'gate') return gateLines(response, seconds)
     const parts = [`mode ${response.mode}`, `outcome ${response.outcome}`]
     if (response.error) parts.push(`error ${response.error}`)
     if (response.mode === 'scan' && response.semgrepJsonOmitted) parts.push('semgrep.json left out (too large)')
