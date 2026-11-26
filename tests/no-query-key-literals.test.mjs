@@ -29,6 +29,7 @@ ruleTester.run('noQueryKeyLiterals', noQueryKeyLiterals, {
         "const columns = ['a', 'b']",
         "doSomething(['x'], value)",
         '<AgreementsTable queryKey={(sort) => queryKeys.legal.userStudyAgreements(sort)} />',
+        'useQuery({ queryKey: cond ? queryKeys.orgs() : queryKeys.study(id), queryFn })',
     ],
     invalid: [
         { code: "useQuery({ queryKey: ['x'], queryFn })", errors },
@@ -40,5 +41,10 @@ ruleTester.run('noQueryKeyLiterals', noQueryKeyLiterals, {
         { code: "queryClient.getQueryData(['x'])", errors },
         { code: "queryClient.getQueryState(['x'])", errors },
         { code: "<AgreementsTable queryKey={['x']} />", errors },
+        { code: "useQuery({ queryKey: ['x', id] as const, queryFn })", errors },
+        { code: "useQuery({ queryKey: ['x'] satisfies QueryKey, queryFn })", errors },
+        { code: "useQuery({ queryKey: cond ? queryKeys.orgs() : ['x'], queryFn })", errors },
+        { code: "queryClient.setQueryData(['x', id] as const, value)", errors },
+        { code: "<AgreementsTable queryKey={['x'] as const} />", errors },
     ],
 })

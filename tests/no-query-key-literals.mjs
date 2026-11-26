@@ -9,6 +9,16 @@ const propertyName = (property) => {
     return null
 }
 
+const TS_WRAPPERS = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'TSTypeAssertion'])
+
+// The array literals a key expression evaluates to, seen through `as const`, `satisfies` and `a ? b : c`.
+const keyLiterals = (node) => {
+    if (!node) return []
+    if (TS_WRAPPERS.has(node.type)) return keyLiterals(node.expression)
+    if (node.type === 'ConditionalExpression') return [...keyLiterals(node.consequent), ...keyLiterals(node.alternate)]
+    return node.type === 'ArrayExpression' ? [node] : []
+}
+
 const noQueryKeyLiterals = {
     meta: {
         type: 'problem',
@@ -26,16 +36,12 @@ const noQueryKeyLiterals = {
 
         return {
             Property(node) {
-                if (propertyName(node) === 'queryKey' && node.value.type === 'ArrayExpression') report(node.value)
+                if (propertyName(node) === 'queryKey') keyLiterals(node.value).forEach(report)
             },
             JSXAttribute(node) {
                 const { value } = node
-                if (
-                    node.name.name === 'queryKey' &&
-                    value?.type === 'JSXExpressionContainer' &&
-                    value.expression.type === 'ArrayExpression'
-                ) {
-                    report(value.expression)
+                if (node.name.name === 'queryKey' && value?.type === 'JSXExpressionContainer') {
+                    keyLiterals(value.expression).forEach(report)
                 }
             },
             CallExpression(node) {
@@ -44,7 +50,7 @@ const noQueryKeyLiterals = {
                     return
                 }
                 if (!KEY_FIRST_METHODS.has(callee.property.name)) return
-                if (node.arguments[0]?.type === 'ArrayExpression') report(node.arguments[0])
+                keyLiterals(node.arguments[0]).forEach(report)
             },
         }
     },
