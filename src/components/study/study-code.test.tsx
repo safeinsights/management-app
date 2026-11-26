@@ -1615,6 +1615,8 @@ describe('StudyCode component', () => {
             vi.mocked(createUserAndWorkspace).mockClear()
             await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
             await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+            // The retried launch fails the same way; it has to settle before the test ends.
+            await waitForPendingMutations()
         })
 
         it('keeps the generic text when no reason is available', async () => {

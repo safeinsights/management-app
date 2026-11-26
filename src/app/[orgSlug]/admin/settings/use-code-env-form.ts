@@ -182,10 +182,13 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         mutationFn: async (values: CreateFormValues | EditFormValues) => {
             return isEditMode ? handleEdit(values as EditFormValues) : handleCreate(values as CreateFormValues)
         },
-        // Data source rows list their code envs, so they refresh too. A new env has no history yet.
+        // Data source rows list their code envs, and proposal setup builds its languages from them,
+        // so those refresh too. A new env has no history yet.
         invalidates: () => [
             queryKeys.orgCodeEnvs(orgSlug),
             queryKeys.orgDataSources(orgSlug),
+            queryKeys.orgLanguages(orgSlug),
+            queryKeys.orgsWithLanguages(),
             ...(image ? [queryKeys.orgCodeEnvHistory(orgSlug, image.id)] : []),
         ],
         onSuccess: () => {

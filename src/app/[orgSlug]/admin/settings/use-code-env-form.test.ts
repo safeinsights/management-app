@@ -237,12 +237,14 @@ describe('useCodeEnvForm', () => {
     })
 
     // The history modal keeps its entries for the staleTime, so an edit must mark them stale.
-    it("edit: refreshes the list, the data sources and that environment's history", async () => {
+    it("edit: refreshes the list, the data sources, proposal setup's languages and that environment's history", async () => {
         const codeEnv = await insertCodeEnv()
         const queryClient = createTestQueryClient()
         const keys = [
             queryKeys.orgCodeEnvs(org.slug),
             queryKeys.orgDataSources(org.slug),
+            queryKeys.orgLanguages(org.slug),
+            queryKeys.orgsWithLanguages(),
             queryKeys.orgCodeEnvHistory(org.slug, codeEnv.id),
         ]
         keys.forEach((key) => queryClient.setQueryData(key, []))

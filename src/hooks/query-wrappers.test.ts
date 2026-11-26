@@ -167,17 +167,17 @@ describe('Query Wrappers', () => {
             expect(onSettled).toHaveBeenCalledOnce()
         })
 
-        it('refetches on a failed write too, before the caller onError runs', async () => {
+        it('refetches on a failed write too, without holding the caller onError until it ends', async () => {
             const { result, order, onSettled, release } = setup(() => Promise.resolve({ error: 'nope' }))
             await waitFor(() => expect(result.current.query.data).toBe('first'))
 
             act(() => result.current.mutation.mutate())
-            await waitFor(() => expect(order).toEqual(['refetch started']))
+            await waitFor(() => expect(result.current.mutation.isError).toBe(true))
+            expect(order).toEqual(['refetch started', 'onError'])
+            expect(onSettled).toHaveBeenCalledOnce()
 
             act(() => release())
-            await waitFor(() => expect(result.current.mutation.isError).toBe(true))
-            expect(order).toEqual(['refetch started', 'refetch done', 'onError'])
-            expect(onSettled).toHaveBeenCalledOnce()
+            await waitFor(() => expect(result.current.query.data).toBe('second'))
         })
 
         it('runs the caller onSuccess without waiting for the refetch when awaitInvalidation is false', async () => {

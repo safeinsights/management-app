@@ -162,7 +162,12 @@ const CodeEnvRow: React.FC<{
     const deleteMutation = useMutation({
         mutationFn: deleteOrgCodeEnvAction,
         // Data source rows list their code envs, so a code env change must refresh them too.
-        invalidates: () => [queryKeys.orgCodeEnvs(orgSlug), queryKeys.orgDataSources(orgSlug)],
+        invalidates: () => [
+            queryKeys.orgCodeEnvs(orgSlug),
+            queryKeys.orgDataSources(orgSlug),
+            queryKeys.orgLanguages(orgSlug),
+            queryKeys.orgsWithLanguages(),
+        ],
         onSuccess: () => {
             showToast({ category: 'success', title: 'Success', message: 'Code environment was deleted successfully' })
         },

@@ -78,7 +78,8 @@ export function useQuery<TApiData>(
 export type InvalidatedKeys = readonly (readonly unknown[])[]
 
 // Invalidates on error too, because a failed write can have committed part of its work. The
-// caller's onSuccess / onError runs after active queries refetch, so it sees fresh data.
+// caller's onSuccess runs after active queries refetch, so it sees fresh data. onError does not
+// wait: a refetch can stall as long as the failure that caused it, and error feedback must not.
 export function useMutation<TApiData, TVariables = void>(
     options: {
         mutationFn: (variables: TVariables) => Promise<ActionResponse<TApiData>>
@@ -89,10 +90,9 @@ export function useMutation<TApiData, TVariables = void>(
 ): UseMutationResult<TApiData, Error, TVariables> {
     const queryClient = useQueryClient()
     const { invalidates, awaitInvalidation = true, onSuccess, onError, ...rest } = options
-    const invalidate = async (variables: TVariables, data: TApiData | undefined) => {
+    const invalidate = (variables: TVariables, data: TApiData | undefined) => {
         const keys = invalidates?.(variables, data) ?? []
-        const refetches = Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
-        if (awaitInvalidation) await refetches
+        return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
     }
 
     return useTanStackMutation<TApiData, Error, TVariables>({
@@ -102,11 +102,12 @@ export function useMutation<TApiData, TVariables = void>(
             return processResponse(response)
         },
         onSuccess: async (...args: Parameters<NonNullable<typeof onSuccess>>) => {
-            await invalidate(args[1], args[0])
+            const refetches = invalidate(args[1], args[0])
+            if (awaitInvalidation) await refetches
             return onSuccess?.(...args)
         },
-        onError: async (...args: Parameters<NonNullable<typeof onError>>) => {
-            await invalidate(args[1], undefined)
+        onError: (...args: Parameters<NonNullable<typeof onError>>) => {
+            void invalidate(args[1], undefined)
             return onError?.(...args)
         },
     })
