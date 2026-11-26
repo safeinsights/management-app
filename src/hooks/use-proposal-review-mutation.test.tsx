@@ -142,7 +142,6 @@ describe('useProposalReviewMutation', () => {
         const reviewUrl = Routes.studyReview({ orgSlug: org.slug, studyId: study.id })
         memoryRouter.setCurrentUrl(reviewUrl)
         const routerRefresh = (memoryRouter as unknown as { refresh: Mock }).refresh
-        routerRefresh.mockClear()
 
         const { result } = renderHook(
             () =>
