@@ -33,17 +33,19 @@ export const fieldDescribedBy = (inputId: string, { hasError, hasDescription, ha
         .join(' ') || undefined
 
 // `isLive` (OTTER-737) keeps the box mounted while empty: a live region inserted at the same
-// moment as its text is unreliably announced.
-export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: boolean }> = ({
+// moment as its text is unreliably announced. `reservesLine` holds one error line open so a message
+// arriving mid-click cannot shift the control under the pointer (OTTER-964).
+export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: boolean; reservesLine?: boolean }> = ({
     fieldId,
     error,
     isLive,
+    reservesLine,
 }) => {
     const message = error ? <InputError error={errorToString(error)} /> : null
 
     if (isLive) {
         return (
-            <Box id={fieldErrorId(fieldId)} aria-live="polite">
+            <Box id={fieldErrorId(fieldId)} aria-live="polite" mih={reservesLine ? ERROR_LINE_MIN_HEIGHT : undefined}>
                 {message}
             </Box>
         )

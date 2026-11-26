@@ -76,7 +76,7 @@ function useCodeReview({
     const feedback = useReviewFeedback(`Enter your feedback for ${labName}.`)
     const decision = useReviewDecision<CodeDecision>()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
-    // State (not a ref): must re-render so validateOnBlur and the gated field blurs see the flip.
+    // State (not a ref): must re-render so validateOnBlur and the gated decision blur see the flip.
     const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
 
     const evaluationForm = useForm<{ criteria: CodeReviewCriteriaDraft }>({
@@ -142,16 +142,12 @@ function useCodeReview({
         )
     }
 
-    const conditionalFeedbackBlur = async () => {
-        if (hasAttemptedSubmit) return feedback.onBlur()
-    }
-
     const conditionalDecisionBlur = async () => {
         if (hasAttemptedSubmit) return decision.onBlur()
     }
 
     return {
-        feedback: { ...feedback, onBlur: conditionalFeedbackBlur },
+        feedback,
         decision: { ...decision, onBlur: conditionalDecisionBlur },
         evaluationForm,
         handleSubmit,

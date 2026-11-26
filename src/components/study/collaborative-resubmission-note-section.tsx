@@ -6,12 +6,12 @@ import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Editor } from '@/components/editable-text/editor'
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { proposalResubmissionNoteDocNameForVersion } from '@/lib/collaboration-documents'
+import { resubmissionNoteToLexicalJson, type ResubmitNoteValue } from '@/schema/resubmission-note'
 import {
-    RESUBMISSION_NOTE_FIELD_ID,
-    resubmissionNoteToLexicalJson,
-    type ResubmitNoteValue,
-} from '@/schema/resubmission-note'
-import { ResubmissionNoteCard, type ResubmissionNoteAutosaveStatus } from './resubmission-note-card'
+    ResubmissionNoteCard,
+    validateNoteUnlessBlank,
+    type ResubmissionNoteAutosaveStatus,
+} from './resubmission-note-card'
 
 interface CollaborativeResubmissionNoteSectionProps {
     studyId: string
@@ -50,7 +50,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                     studyId={studyId}
                     initialValue={resubmissionNoteToLexicalJson(initialNote) || undefined}
                     websocketProvider={websocketProvider}
-                    onBlur={() => noteForm.validateField(RESUBMISSION_NOTE_FIELD_ID)}
+                    onBlur={() => validateNoteUnlessBlank(noteForm)}
                 />
             )}
         </ResubmissionNoteCard>

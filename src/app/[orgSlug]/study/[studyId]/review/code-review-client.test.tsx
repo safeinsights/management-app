@@ -198,7 +198,7 @@ describe('CodeReviewClient decision selector', () => {
         })
     })
 
-    it('does not flag a field on blur before the first submit click', async () => {
+    it('does not flag the criteria or decision radios on blur before the first submit click', async () => {
         const user = userEvent.setup()
         const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
@@ -214,6 +214,63 @@ describe('CodeReviewClient decision selector', () => {
         await user.click(screen.getByTestId('code-review-submit'))
         await waitFor(() => {
             expect(screen.getByText('Select an answer for each criterion.')).toBeInTheDocument()
+            expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
+    })
+
+    it('flags the empty feedback field on blur, before any submit click', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await user.click(await screen.findByRole('textbox', { name: 'Code review feedback' }))
+        await user.click(screen.getByTestId('code-evaluation-attention'))
+
+        await waitFor(() => {
+            expect(screen.getByText('Enter your feedback for Rice University.')).toBeInTheDocument()
+        })
+        expect(screen.queryByText('Select an answer for each criterion.')).not.toBeInTheDocument()
+        expect(screen.queryByText('Select an option before submitting.')).not.toBeInTheDocument()
+    })
+
+    it('does not flag the feedback field on blur once it has content', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        const editor = await screen.findByRole('textbox', { name: 'Code review feedback' })
+        await user.click(editor)
+        await setEditorText(editor, 'sample feedback body')
+        await user.click(screen.getByTestId('code-evaluation-attention'))
+
+        // The submit click awaits the same feedback validation, so its other errors showing means
+        // the blur's validation has settled too.
+        await user.click(screen.getByTestId('code-review-submit'))
+        await waitFor(() => {
+            expect(screen.getByText('Select an answer for each criterion.')).toBeInTheDocument()
+            expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
+        expect(screen.queryByText('Enter your feedback for Rice University.')).not.toBeInTheDocument()
+        expect(editor).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('flags all three fields when Submit is the click that leaves the empty feedback editor', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await user.click(await screen.findByRole('textbox', { name: 'Code review feedback' }))
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => {
+            expect(screen.getByText('Select an answer for each criterion.')).toBeInTheDocument()
+            expect(screen.getByText('Enter your feedback for Rice University.')).toBeInTheDocument()
             expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
         })
     })

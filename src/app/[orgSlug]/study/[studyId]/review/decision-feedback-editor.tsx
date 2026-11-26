@@ -60,7 +60,7 @@ export function DecisionFeedbackEditor({
             isResizable={isResizable}
             // The error takes exactly the slot the save indicator vacates, so it sits directly
             // under the input instead of a row below the character counter (OTTER-674).
-            footerLeft={<FieldErrorBox fieldId={inputId} error={feedback.error} isLive />}
+            footerLeft={<FieldErrorBox fieldId={inputId} error={feedback.error} isLive reservesLine />}
             footerRight={
                 <CharacterCounter
                     id={fieldCounterId(inputId)}

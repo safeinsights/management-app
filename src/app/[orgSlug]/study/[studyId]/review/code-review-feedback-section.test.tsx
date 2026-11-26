@@ -12,6 +12,7 @@ import {
 } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { fieldErrorId } from '@/components/form-field'
+import { ERROR_LINE_MIN_HEIGHT } from '@/components/errors'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 import { overCharacterLimitError } from '@/lib/field-limits'
@@ -80,7 +81,10 @@ describe('CodeReviewFeedbackSection', () => {
 
         // The collaborative editor is a lazy chunk, so the footer is not in the first render.
         expect(await screen.findByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
-        expect(document.getElementById(fieldErrorId('code-review-feedback'))).toBeEmptyDOMElement()
+        const errorBox = document.getElementById(fieldErrorId('code-review-feedback'))!
+        expect(errorBox).toBeEmptyDOMElement()
+        // Reserved before the blur error, so it arriving mid-click moves nothing below (OTTER-964).
+        expect(errorBox.style.minHeight).toBe(ERROR_LINE_MIN_HEIGHT)
     })
 
     it('renders the empty-field error in the same footer row as the character counter (OTTER-674)', async () => {
