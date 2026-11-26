@@ -24,6 +24,7 @@ import { StudyRequestProvider, type DraftStudyData } from '@/contexts/study-requ
 import { Routes } from '@/lib/routes'
 import { ERROR_LINE_MIN_HEIGHT } from '@/components/errors'
 import { StudyProposal } from './proposal'
+import { queryKeys } from '@/lib/query-keys'
 
 // focusFirstInvalid scrolls before it focuses, and the test DOM has no layout to scroll.
 Element.prototype.scrollIntoView = vi.fn()
@@ -582,7 +583,7 @@ describe('Data Partner and programming language fields', () => {
         // A background refetch for the same partner. The options are re-ordered so the assertion
         // can tell that the fresh data really landed, which is what makes the second half mean
         // something: re-applying the defaults here would wipe a choice just made.
-        queryClient.setQueryData(['languages-for-org', fixtures.multiLanguagePartner.slug], {
+        queryClient.setQueryData(queryKeys.orgLanguages(fixtures.multiLanguagePartner.slug), {
             orgName: fixtures.multiLanguagePartner.name,
             languages: [
                 { value: 'PYTHON', label: 'Python' },
@@ -605,7 +606,7 @@ describe('Data Partner and programming language fields', () => {
         await selectPartner(user, fixtures.multiLanguagePartner.name)
         await user.click(await screen.findByRole('radio', { name: 'Python' }))
 
-        queryClient.setQueryData(['languages-for-org', fixtures.multiLanguagePartner.slug], {
+        queryClient.setQueryData(queryKeys.orgLanguages(fixtures.multiLanguagePartner.slug), {
             orgName: fixtures.multiLanguagePartner.name,
             languages: [{ value: 'R', label: 'R' }],
         })
@@ -998,7 +999,7 @@ describe('Locked fields', () => {
         // Primed rather than fetched: a locked field renders no DOM signal to wait on, so a live
         // fetch would race the Continue click.
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData(['languages-for-org', fixtures.retiredPartner.slug], {
+        queryClient.setQueryData(queryKeys.orgLanguages(fixtures.retiredPartner.slug), {
             orgName: fixtures.retiredPartner.name,
             languages: [],
         })

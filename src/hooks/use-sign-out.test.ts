@@ -6,13 +6,13 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { createElement } from 'react'
-import { CURRENT_USER_INFO_KEY } from './session'
 import { describe, it, expect, vi } from 'vitest'
 import { useClerk } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
 import posthog from 'posthog-js'
 import { useSignOut } from './use-sign-out'
+import { queryKeys } from '@/lib/query-keys'
 
 // next-router-mock implements the pages-router surface; refresh() is app-router only.
 ;(memoryRouter as unknown as { refresh: () => void }).refresh = vi.fn()
@@ -74,13 +74,13 @@ describe('useSignOut', () => {
     it('drops the cached org list', async () => {
         mockClerkSignOut(vi.fn().mockResolvedValue(undefined))
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
+        queryClient.setQueryData(queryKeys.currentUserInfo('clerk-user'), { orgs: {} })
 
         const { result } = renderHook(() => useSignOut(), {
             wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
         })
         await result.current()
 
-        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeUndefined()
+        expect(queryClient.getQueryData(queryKeys.currentUserInfo('clerk-user'))).toBeUndefined()
     })
 })

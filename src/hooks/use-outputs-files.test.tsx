@@ -17,10 +17,11 @@ import { useParams } from 'next/navigation'
 import type { JobFileActivity } from '@/server/db/queries'
 import type { JobFileInfo } from '@/lib/types'
 import { useOutputsFiles } from './use-outputs-files'
+import { queryKeys } from '@/lib/query-keys'
 
 const ORG_SLUG = 'memorial'
 
-const activityQueryKey = (jobId: string) => ['job-file-activity', jobId, ORG_SLUG]
+const activityQueryKey = (jobId: string) => queryKeys.jobFileActivity(jobId, ORG_SLUG)
 
 const decryptedFile = (path: string): JobFileInfo =>
     ({ sourceId: faker.string.uuid(), path, contents: new ArrayBuffer(8) }) as JobFileInfo

@@ -17,6 +17,7 @@ import {
     StudyCodeToggle,
     type StudyCodeToggleLabels,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
+import { queryKeys } from '@/lib/query-keys'
 
 function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {
     const [activeFileName, setActiveFileName] = useState<string | null>(files[0]?.name ?? null)
@@ -142,7 +143,7 @@ function ActiveFileDownloadLink({ studyJobId, fileName }: { studyJobId: string; 
 
 function useStudyCodeFileContents(studyJobId: string, fileName: string) {
     return useQuery({
-        queryKey: ['study-job-code-file', studyJobId, fileName],
+        queryKey: queryKeys.jobCodeFile(studyJobId, fileName),
         queryFn: () => fetchStudyJobCodeFileAction({ studyJobId, fileName }),
         staleTime: Infinity,
     })

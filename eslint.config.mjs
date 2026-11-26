@@ -12,6 +12,7 @@ import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
 import noJobStatusWrites from './tests/no-job-status-writes.mjs'
+import noQueryKeyLiterals from './tests/no-query-key-literals.mjs'
 
 // Shared with the database-handle object below: a later object setting this rule replaces the list.
 const restrictedImportPaths = [
@@ -169,6 +170,7 @@ const eslintConfig = [
                     noInvalidButtonVariant,
                     noRawStyleValues,
                     noJobStatusWrites,
+                    noQueryKeyLiterals,
                 },
             },
         },
@@ -252,6 +254,14 @@ const eslintConfig = [
         ignores: ['src/database/job-status-writer.ts', 'src/database/migrations/**'],
         rules: {
             'custom/noJobStatusWrites': 'error',
+        },
+    },
+    // Query keys come only from the factories (OTTER-974).
+    {
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: ['src/lib/query-keys.ts'],
+        rules: {
+            'custom/noQueryKeyLiterals': 'error',
         },
     },
     // Theme tokens over ad-hoc styling.

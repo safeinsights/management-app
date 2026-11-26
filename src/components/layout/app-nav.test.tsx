@@ -10,6 +10,7 @@ import {
 } from '@/tests/unit.helpers'
 import { AppShell } from '@mantine/core'
 import { AppNav } from './app-nav'
+import { queryKeys } from '@/lib/query-keys'
 
 describe('AppNav unread dots', () => {
     // The query client outlives an account switch, so one user's cached dots must not reach the next.
@@ -17,7 +18,7 @@ describe('AppNav unread dots', () => {
         const { user: previous } = await mockSessionWithTestData({ orgType: 'lab' })
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData(['nav-unread', previous.id], {
+        queryClient.setQueryData(queryKeys.navUnread(previous.id), {
             myStudies: { researcher: true, reviewer: false },
             orgSlugs: [org.slug],
         })
@@ -30,7 +31,7 @@ describe('AppNav unread dots', () => {
         )
 
         expect(screen.queryByText('Updated')).not.toBeInTheDocument()
-        await waitFor(() => expect(queryClient.getQueryData(['nav-unread', user.id])).toBeDefined())
+        await waitFor(() => expect(queryClient.getQueryData(queryKeys.navUnread(user.id))).toBeDefined())
         expect(screen.queryByText('Updated')).not.toBeInTheDocument()
     })
 })

@@ -15,6 +15,7 @@ import { useSubmitOnce } from '@/hooks/use-submit-once'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
+import { queryKeys } from '@/lib/query-keys'
 
 export type SubmitCodeReviewArgs = {
     decision: CodeDecision
@@ -50,7 +51,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
             showToast(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
-            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.reviewerOrgStudies(orgSlug) })
             showToast(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id

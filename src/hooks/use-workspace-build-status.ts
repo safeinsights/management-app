@@ -5,6 +5,7 @@ import { useQuery } from '@/common'
 import { actionResult } from '@/lib/utils'
 import { getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
+import { queryKeys } from '@/lib/query-keys'
 
 interface UseWorkspaceBuildStatusOptions {
     studyId: string
@@ -50,7 +51,7 @@ export function useWorkspaceBuildStatus({
     }, [enabled])
 
     const query = useQuery({
-        queryKey: ['workspace-build-status', studyId],
+        queryKey: queryKeys.workspaceBuildStatus(studyId),
         enabled,
         // The launcher captures a failed poll itself, for the failure modal's Ref.
         meta: { reportsOwnErrors: true },

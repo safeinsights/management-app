@@ -22,7 +22,8 @@ import { auth as clerkAuth } from '@clerk/nextjs/server'
 import { notifications } from '@mantine/notifications'
 import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { findOrCreateOrgMembership } from '@/server/db/mutations'
-import { CURRENT_USER_INFO_KEY, useReloadOrgList, useSession } from './session'
+import { useReloadOrgList, useSession } from './session'
+import { queryKeys } from '@/lib/query-keys'
 
 type TestQueryClient = ReturnType<typeof createTestQueryClient>
 
@@ -135,7 +136,7 @@ describe('useSession', () => {
         let release!: (info: UserInfo) => void
         const oldRequest = queryClient
             .fetchQuery({
-                queryKey: [...CURRENT_USER_INFO_KEY, (useUser as Mock)().user.id],
+                queryKey: queryKeys.currentUserInfo((useUser as Mock)().user.id),
                 queryFn: () =>
                     new Promise<UserInfo>((resolve) => {
                         release = resolve
@@ -207,7 +208,7 @@ describe('useSession', () => {
         await waitFor(() => expect(queryClient.isFetching()).toBe(0))
 
         // Another failed attempt must remain quiet.
-        await act(() => queryClient.refetchQueries({ queryKey: CURRENT_USER_INFO_KEY }))
+        await act(() => queryClient.refetchQueries({ queryKey: queryKeys.currentUserInfoAll() }))
         expect(notifications.show).toHaveBeenCalledTimes(1)
         ;(clerkAuth as unknown as Mock).mockImplementation(workingAuth)
         renderWithProviders(<SessionOrgSlugs />, { queryClient, sessionInfo: null })
@@ -226,9 +227,9 @@ describe('useSession', () => {
         const queryClient = appLikeQueryClient()
         renderWithLayoutInfo(serverInfoFor(userId), queryClient)
 
-        await act(() => queryClient.refetchQueries({ queryKey: CURRENT_USER_INFO_KEY }))
+        await act(() => queryClient.refetchQueries({ queryKey: queryKeys.currentUserInfoAll() }))
 
-        expect(queryClient.getQueryState([...CURRENT_USER_INFO_KEY, 'c1'])?.status).toBe('error')
+        expect(queryClient.getQueryState(queryKeys.currentUserInfo('c1'))?.status).toBe('error')
         expect(notifications.show).not.toHaveBeenCalled()
         expect(orgList()).toHaveTextContent('from-server')
     })

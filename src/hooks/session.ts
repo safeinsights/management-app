@@ -8,8 +8,7 @@ import { useUser } from '@clerk/nextjs'
 import { useQuery, useQueryClient } from '@/common'
 import { currentUserInfoAction } from '@/server/actions/user.actions'
 import { useSessionInfoUpdatedAt, useSessionInfo } from '@/components/layout/session-info-context'
-
-export const CURRENT_USER_INFO_KEY = ['currentUserInfo']
+import { queryKeys } from '@/lib/query-keys'
 
 type ClerkUser = ReturnType<typeof useUser>['user']
 
@@ -35,7 +34,7 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
     const serverInfo = usableServerInfo(useSessionInfo(), user)
     const clerkUserId = user?.id
     const { data } = useQuery({
-        queryKey: [...CURRENT_USER_INFO_KEY, clerkUserId],
+        queryKey: queryKeys.currentUserInfo(clerkUserId),
         queryFn: fetchSignedInUserInfo,
         enabled: Boolean(clerkUserId),
         initialData: clerkUserId ? (serverInfo ?? undefined) : undefined,
@@ -58,8 +57,8 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
 export const useReloadOrgList = (): (() => Promise<void>) => {
     const queryClient = useQueryClient()
     return useCallback(async () => {
-        await queryClient.cancelQueries({ queryKey: CURRENT_USER_INFO_KEY })
-        await queryClient.invalidateQueries({ queryKey: CURRENT_USER_INFO_KEY })
+        await queryClient.cancelQueries({ queryKey: queryKeys.currentUserInfoAll() })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.currentUserInfoAll() })
     }, [queryClient])
 }
 

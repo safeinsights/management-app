@@ -7,6 +7,7 @@ import { FC, use } from 'react'
 import { getOrgInfoForInviteAction } from '@/server/actions/create-account.actions'
 import { InvalidInvitePanel } from '../invalid-invite-panel'
 import { SetupAccountForm } from './setup-account-form'
+import { queryKeys } from '@/lib/query-keys'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -21,7 +22,7 @@ const SignupAccountPanel: FC<InviteProps> = ({ params }) => {
         isLoading: isLoadingData,
         isError,
     } = useQuery({
-        queryKey: ['orgInfoForInvite', inviteId],
+        queryKey: queryKeys.inviteOrgInfo(inviteId),
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
 

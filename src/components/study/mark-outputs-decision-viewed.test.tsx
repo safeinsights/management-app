@@ -10,6 +10,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { MarkOutputsDecisionViewed } from './mark-outputs-decision-viewed'
+import { queryKeys } from '@/lib/query-keys'
 
 const viewedRows = (jobId: string) =>
     db
@@ -37,15 +38,15 @@ describe('MarkOutputsDecisionViewed', () => {
         const { org } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-REJECTED' })
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData(['user-researcher-studies'], [])
-        queryClient.setQueryData(['researcher-studies', org.slug], [])
+        queryClient.setQueryData(queryKeys.researcherUserStudies(), [])
+        queryClient.setQueryData(queryKeys.researcherOrgStudies(org.slug), [])
 
         renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} />, { queryClient })
 
         await waitFor(async () => expect(await viewedRows(job.id)).toHaveLength(1))
         await waitFor(() => {
-            expect(queryClient.getQueryState(['user-researcher-studies'])?.isInvalidated).toBe(true)
-            expect(queryClient.getQueryState(['researcher-studies', org.slug])?.isInvalidated).toBe(true)
+            expect(queryClient.getQueryState(queryKeys.researcherUserStudies())?.isInvalidated).toBe(true)
+            expect(queryClient.getQueryState(queryKeys.researcherOrgStudies(org.slug))?.isInvalidated).toBe(true)
         })
     })
 })

@@ -18,12 +18,13 @@ import { useRouter } from 'next/navigation'
 import { FC, useMemo, useState } from 'react'
 import * as R from 'remeda'
 import { EditOrgForm } from './edit-org-form'
+import { queryKeys } from '@/lib/query-keys'
 
 type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 
 export function OrgsAdminTable() {
     const { data = [], isFetching } = useQuery({
-        queryKey: ['orgs'],
+        queryKey: queryKeys.orgs(),
         queryFn: fetchAdminOrgsWithStatsAction,
     })
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
@@ -101,7 +102,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
         },
         onError: reportMutationError('Failed to delete organization'),
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['orgs'] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.orgs() })
         },
     })
 

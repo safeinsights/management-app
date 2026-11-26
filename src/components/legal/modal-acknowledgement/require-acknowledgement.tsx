@@ -7,7 +7,6 @@ import { globalAcknowledgementUrl } from '@/lib/global-acknowledgement-redirect'
 import { Routes } from '@/lib/routes'
 import {
     isGlobalLegalDocumentType,
-    legalDocumentQueryKeys,
     type PendingAcknowledgement,
     type PendingLegalDocument,
 } from '@/schema/legal-document'
@@ -17,6 +16,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import { LegalAcknowledgementModal } from './acknowledgement-modal'
 import { useAcknowledgementConsent } from '../use-acknowledgement-consent'
+import { queryKeys } from '@/lib/query-keys'
 
 const NOTHING_PENDING: PendingAcknowledgement[] = []
 
@@ -33,7 +33,7 @@ function useNextPendingLegalAcknowledgement() {
         error: readError,
         isFetching,
     } = useQuery({
-        queryKey: legalDocumentQueryKeys.nextPendingAcknowledgement(),
+        queryKey: queryKeys.legal.nextPendingAcknowledgement(),
         queryFn: () => fetchNextPendingLegalAcknowledgementAction(),
         enabled: Boolean(session),
     })
@@ -49,7 +49,7 @@ function useNextPendingLegalAcknowledgement() {
 
     const consent = useAcknowledgementConsent({
         versionIds: agreement ? [agreement.versionId] : [],
-        invalidateKey: legalDocumentQueryKeys.nextPendingAcknowledgement(),
+        invalidateKey: queryKeys.legal.nextPendingAcknowledgement(),
     })
 
     return {

@@ -115,7 +115,7 @@ async function insertScanLog(studyJobId: string, verdict: 'no findings' | 'findi
 const watchPolls = (queryClient: ReturnType<typeof createTestQueryClient>) => {
     const polls = { started: 0, failed: 0 }
     queryClient.getQueryCache().subscribe((event) => {
-        if (event.type !== 'updated' || event.query.queryKey[0] !== 'job-analysis') return
+        if (event.type !== 'updated' || event.query.queryKey[2] !== 'analysis') return
         if (event.action.type === 'fetch') polls.started++
         if (event.action.type === 'error') polls.failed++
     })
