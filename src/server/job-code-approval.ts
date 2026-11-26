@@ -20,10 +20,11 @@ export async function approveJobCode({
     studyId: string
     orgSlug: string
 }) {
-    await transitionJob(db, job.id, 'CODE-APPROVED', { actor: 'reviewer', userId })
+    // Every caller is a decision action, which publishes its own decision event.
+    await transitionJob(db, job.id, 'CODE-APPROVED', { actor: 'reviewer', userId, publish: false })
 
     if (SIMULATE_CODE_BUILD) {
-        await transitionJob(db, job.id, 'JOB-READY', { actor: 'system', userId })
+        await transitionJob(db, job.id, 'JOB-READY', { actor: 'system', userId, publish: false })
     } else {
         // The study runs the code env frozen when its language was chosen.
         const image = await fetchCodeEnvForStudyId(studyId, db)

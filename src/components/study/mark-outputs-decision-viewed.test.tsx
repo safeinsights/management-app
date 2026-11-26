@@ -1,4 +1,5 @@
 import {
+    captureStudyEvents,
     createTestQueryClient,
     db,
     describe,
@@ -31,6 +32,20 @@ describe('MarkOutputsDecisionViewed', () => {
         renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} />)
 
         await waitFor(async () => expect(await viewedRows(job.id)).toHaveLength(1))
+    })
+
+    // Without it this tab would treat its own job-status event as news and refresh the page in use.
+    it("sends this tab's id with the write", async () => {
+        const events = captureStudyEvents()
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-REJECTED' })
+
+        renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} />)
+
+        await waitFor(async () => expect(await viewedRows(job.id)).toHaveLength(1))
+        expect(events.events).toEqual([
+            expect.objectContaining({ jobId: job.id, change: 'job-status', originTabId: expect.any(String) }),
+        ])
     })
 
     // Without this the in-app route back reads a dashboard row cached before the write.

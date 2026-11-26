@@ -8,8 +8,6 @@ import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { type ResubmitNoteValue } from '@/schema/resubmission-note'
-import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
-import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from '@/contexts/proposal/hooks/build-study-info'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
 import { reportSubmissionFailure, SUBMIT_SUCCESS_TITLE } from '@/contexts/proposal/hooks/submission-toasts'
@@ -18,20 +16,12 @@ interface UseResubmitProposalOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
     noteForm: UseFormReturnType<ResubmitNoteValue>
-    yjsForm: ReturnType<typeof useYjsFormMap>
     tabSessionId: string
     /** Flushes the note draft; the failure branch relies on it so the toast can promise the work is saved. */
     flushNote: () => Promise<boolean>
 }
 
-export function useResubmitProposal({
-    studyId,
-    form,
-    noteForm,
-    yjsForm,
-    tabSessionId,
-    flushNote,
-}: UseResubmitProposalOptions) {
+export function useResubmitProposal({ studyId, form, noteForm, tabSessionId, flushNote }: UseResubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     // reportErrors false because the failure branch below folds the outcome into its own toast.
@@ -46,26 +36,16 @@ export function useResubmitProposal({
                     studyId,
                     studyInfo: buildStudyInfo(form.getValues(), 'omit'),
                     resubmissionNote: noteForm.values.resubmissionNote,
+                    originTabId: tabSessionId,
                 }),
             ),
-        onSuccess: (result) => {
+        onSuccess: () => {
             form.resetDirty()
             noteForm.resetDirty()
             // Fired before the push: the provider is mounted at the root, and the navigation sweep
             // spares a toast younger than TOAST_NAVIGATION_GRACE_MS, so this one lands on the
             // destination page.
             showToast({ category: 'success', title: SUBMIT_SUCCESS_TITLE, message: '' })
-            const event: SubmissionEvent = {
-                type: 'proposal-submitted',
-                studyId,
-                submittedByTabId: tabSessionId,
-                submittedByClerkId: result.submitterClerkId,
-                submittedByName: result.submitterFullName,
-                orgName: result.orgName,
-            }
-            // The action has already flipped status to PENDING-REVIEW, so the editor service
-            // accepts this event; peers that miss it fall through to the status poll.
-            yjsForm.provider?.sendStateless(JSON.stringify(event))
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
         onError: (error) => reportSubmissionFailure(error, [saveDraft(), flushNote()]),

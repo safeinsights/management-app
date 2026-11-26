@@ -12,7 +12,7 @@ import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudySubject } from '@/server/actions/study-subject'
 import { storeS3File } from '@/server/aws'
 import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
-import { jobRound } from '@/server/db/queries'
+import { fetchUserFullName, jobRound } from '@/server/db/queries'
 import { onStudyCodeSubmitted, onStudyProposalSubmitted, onStudyReviewRequested } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { resubmissionNoteToLexicalJson, resubmissionNoteParam } from '@/schema/resubmission-note'
@@ -24,9 +24,35 @@ import {
     sweepDiscardedScanLogs,
     triggerCodeScan,
 } from '@/server/study-submission'
+import { notifyStudyChanged } from '@/server/study-events'
+import type { DBExecutor } from '@/database'
+
+const notifyCodeSubmitted = async (
+    db: DBExecutor,
+    {
+        studyId,
+        studyJobId,
+        userId,
+        originTabId,
+    }: { studyId: string; studyJobId: string; userId: string; originTabId?: string },
+) =>
+    notifyStudyChanged(db, {
+        studyId,
+        jobId: studyJobId,
+        change: 'code-submitted',
+        submittedBy: { name: await fetchUserFullName(userId, db) },
+        originTabId,
+    })
 
 export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })
-    .params(z.object({ studyId: z.uuid(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
+    .params(
+        z.object({
+            studyId: z.uuid(),
+            mainFileName: z.string(),
+            fileNames: z.array(z.string()),
+            originTabId: z.string().max(64).optional(),
+        }),
+    )
     .middleware(withStudySubject)
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
@@ -35,7 +61,8 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     // A resubmission goes through resubmitStudyCodeAction, which requires a resubmission note.
     .middleware(requireUnsubmittedCodeRound(({ params }) => params.studyId))
     .middleware(requireOpenedCodeRound(({ params }) => params.studyId))
-    .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status, afterCommit }) => {
+    .handler(async ({ orgSlug, params, session, db, status, afterCommit }) => {
+        const { studyId, mainFileName, fileNames, originTabId } = params
         if (fileNames.length === 0) {
             throw new ActionFailure('No files provided')
         }
@@ -72,6 +99,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         const round = await jobRound(studyJobId, db)
 
         await markStudyUpdated(db, { studyId, userId })
+        await notifyCodeSubmitted(db, { studyId, studyJobId, userId, originTabId })
 
         if (status === 'APPROVED') {
             onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: false })
@@ -131,6 +159,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             mainFileName: z.string(),
             fileNames: z.array(z.string()),
             resubmissionNote: resubmissionNoteParam,
+            originTabId: z.string().max(64).optional(),
         }),
     )
     .middleware(withStudySubject)
@@ -140,7 +169,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     // instead of replacing the first one's files in S3.
     .middleware(requireResubmittableCode(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params, session, db, afterCommit }) => {
-        const { studyId, mainFileName, fileNames, resubmissionNote } = params
+        const { studyId, mainFileName, fileNames, resubmissionNote, originTabId } = params
 
         if (fileNames.length === 0) throw new ActionFailure('No files provided')
         if (!fileNames.includes(mainFileName)) throw new ActionFailure('Main file not in file list')
@@ -198,6 +227,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         }
 
         await markStudyUpdated(db, { studyId, userId, set: { codeResubmissionNoteDraft: null } })
+        await notifyCodeSubmitted(db, { studyId, studyJobId, userId, originTabId })
 
         onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: true })
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))

@@ -4,18 +4,15 @@ import { verifyToken } from '@clerk/backend'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { TYPING_DEBOUNCE_MS, MAX_SAVE_INTERVAL_MS } from './constants.ts'
 import {
-    type AuthenticatedContext,
-    type StudyStatus,
     AuthFailureError,
     InfraUnavailableError,
-    assertStatelessEventConsistent,
     authenticate,
-    hasFilesDecision,
+    isReadOnlyDocument,
     parseDocumentName,
-    parseStatelessEvent,
     shouldPersistDocument,
     studyIdForDocument,
 } from './auth.ts'
+import { broadcastResync, relayStudyEvent, startStudyEventsListener } from './study-events.ts'
 import { RDS_SSL } from '../../src/lib/db-connection.ts'
 import { pgPoolFactory, ResilientPool } from '../../src/lib/resilient-pool.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical, toLexicalJsonIfPlain } from './lexical-seed.ts'
@@ -63,12 +60,19 @@ log('startup.config', {
 
 const SI_ADMIN_ORG_SLUG = 'safe-insights'
 
+// Lets the OS notice a study events LISTEN connection that dies without a close, which no event
+// reports. The probe interval and count stay at the OS defaults, so on Linux that takes minutes.
+const KEEPALIVE_INITIAL_DELAY_MS = 30_000
+
 // ResilientPool re-reads the secret and rebuilds itself if a deploy rotates the DB password, so the
 // long-running editor task recovers without a restart (OTTER-626).
 log('db.config.source', { source: env.DATABASE_URL ? 'DATABASE_URL' : 'secretsManager' })
 const pool = new ResilientPool(
     await databaseURL(),
-    pgPoolFactory(env.DATABASE_URL ? undefined : RDS_SSL),
+    pgPoolFactory(env.DATABASE_URL ? undefined : RDS_SSL, {
+        keepAlive: true,
+        keepAliveInitialDelayMillis: KEEPALIVE_INITIAL_DELAY_MS,
+    }),
     databaseURL,
     () => log('db.credentials.rotated'),
 )
@@ -89,6 +93,7 @@ const server = new Server({
     extensions: [
         new Database({
             fetch: async ({ documentName }) => {
+                if (parseDocumentName(documentName)?.kind === 'study-events') return null
                 const result = await pool.query('SELECT data FROM yjs_document WHERE name = $1', [documentName])
                 log('db.fetch', {
                     documentName,
@@ -145,7 +150,7 @@ const server = new Server({
             },
         }),
     ],
-    async onAuthenticate({ token, documentName, requestHeaders, requestParameters }) {
+    async onAuthenticate({ token, documentName, requestHeaders, requestParameters, connectionConfig }) {
         const headerKeys = Array.from(requestHeaders.keys())
         const paramKeys = Array.from(requestParameters.keys())
         log('auth.start', {
@@ -168,6 +173,8 @@ const server = new Server({
                 },
             )
             log('auth.ok', { documentName, internalUserId: ctx.user.id, clerkUserId: ctx.user.clerkId })
+            const parsed = parseDocumentName(documentName)
+            if (parsed && isReadOnlyDocument(parsed)) connectionConfig.readOnly = true
             return ctx
         } catch (err) {
             // A genuine auth rejection carries an AuthFailureError with a stable
@@ -230,53 +237,6 @@ const server = new Server({
             console.warn(`onLoadDocument: failed to seed ${documentName}`, error)
         }
     },
-    async onStateless({ payload, documentName, document, connection }) {
-        // Defense-in-depth: only re-broadcast events whose shape, document kind,
-        // sender identity, and (for proposal flows) DB study status all line
-        // up. Forged or stale payloads are dropped silently; throwing here
-        // would close the connection and disrupt unrelated sync.
-        const parsedDoc = parseDocumentName(documentName)
-        if (!parsedDoc) return
-
-        const event = parseStatelessEvent(payload)
-        if (!event) return
-
-        const context = connection.context as AuthenticatedContext | undefined
-        const connectionUserClerkId = context?.user?.clerkId
-        const documentStudyId = context?.studyId
-        if (!connectionUserClerkId || !documentStudyId) return
-
-        // Code-review docs do not gate on DB status here; the action layer is
-        // the single enforcer. Outputs-review docs gate on their own job status
-        // instead, because the study stays APPROVED for the whole outputs round.
-        // Proposal/review-feedback events still need the study-status sanity check.
-        let studyStatus: StudyStatus | null = null
-        let jobDecided: boolean | null = null
-        if (parsedDoc.kind === 'outputs-review-feedback') {
-            jobDecided = await hasFilesDecision(parsedDoc.jobId, pool)
-        } else if (parsedDoc.kind !== 'code-review-feedback' && parsedDoc.kind !== 'code-submission') {
-            const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
-                documentStudyId,
-            ])
-            studyStatus = statusRow.rows[0]?.status ?? null
-            if (!studyStatus) return
-        }
-
-        if (
-            !assertStatelessEventConsistent({
-                event,
-                parsed: parsedDoc,
-                documentStudyId,
-                connectionUserClerkId,
-                studyStatus,
-                jobDecided,
-            })
-        ) {
-            return
-        }
-
-        document.broadcastStateless(payload)
-    },
     async onConnect({ documentName }) {
         log('connect', { documentName })
     },
@@ -302,3 +262,12 @@ const server = new Server({
 
 await server.listen()
 log('listening', { port: 4001 })
+
+// Clients send no stateless messages: there is no onStateless hook, so Hocuspocus drops them. Study
+// change events come from the app through Postgres and go out on the study-events documents.
+startStudyEventsListener({
+    connect: () => pool.connect(),
+    onEvent: (payload) => relayStudyEvent(payload, server.hocuspocus.documents),
+    onListening: () => broadcastResync(server.hocuspocus.documents),
+    log,
+})

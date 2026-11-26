@@ -31,9 +31,8 @@ export function CodeUploadPage({
     const presence = useCodeSubmissionPresence(studyId, isEditable)
 
     const onSubmitSuccess = useCallback(() => {
-        presence.broadcastSubmitted()
         router.push(Routes.studyView({ orgSlug, studyId }))
-    }, [presence, router, orgSlug, studyId])
+    }, [router, orgSlug, studyId])
 
     return (
         <StudyCode

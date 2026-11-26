@@ -37,7 +37,7 @@ interface EditResubmitContextValue {
     noteLastSavedAt: Date | null
     websocketProvider: HocuspocusProviderWebsocket | null
     yjsForm: ReturnType<typeof useYjsFormMap>
-    /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
+    /** This tab's id, sent with the resubmit so the tab skips its own study event. */
     tabSessionId: string
 }
 
@@ -166,7 +166,6 @@ export function EditResubmitProvider({ children, studyId, draftData, initialNote
         studyId,
         form,
         noteForm,
-        yjsForm,
         tabSessionId,
         flushNote,
     })

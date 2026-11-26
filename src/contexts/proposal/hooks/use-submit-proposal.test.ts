@@ -4,6 +4,7 @@ import {
     actionResult,
     beforeEach,
     createTestProposalDraft,
+    captureStudyEvents,
     createTestQueryWrapper,
     db,
     describe,
@@ -18,7 +19,6 @@ import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 import { useForm } from '@mantine/form'
 import { zod4Resolver as zodResolver } from 'mantine-form-zod-resolver'
-import type { HocuspocusProvider } from '@hocuspocus/provider'
 import { finalizeStudySubmissionAction } from '@/server/actions/study-proposal.actions'
 import { Routes } from '@/lib/routes'
 import { lexicalJson } from '@/lib/lexical'
@@ -28,7 +28,6 @@ import {
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
-import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import {
     SUBMIT_FAILURE_MESSAGE,
     SUBMIT_FAILURE_TITLE,
@@ -48,21 +47,6 @@ const buildValidProposalValues = (piUserId: string): ProposalFormValues => ({
     piUserId,
 })
 
-type StubYjsForm = ReturnType<typeof useYjsFormMap>
-
-const buildStubYjsForm = (): { yjsForm: StubYjsForm; sendStateless: Mock } => {
-    const sendStateless = vi.fn()
-    const yjsForm: StubYjsForm = {
-        provider: { sendStateless } as unknown as HocuspocusProvider,
-        fieldsMap: null,
-        isSynced: true,
-        editedKeys: new Set(),
-        pushField: vi.fn(),
-        pushPI: vi.fn(),
-    }
-    return { yjsForm, sendStateless }
-}
-
 describe('useSubmitProposal', () => {
     let tabSessionId: string
 
@@ -72,9 +56,9 @@ describe('useSubmitProposal', () => {
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('successful submit broadcasts the event and navigates', async () => {
+    it('successful submit publishes the event from the server and navigates', async () => {
         const { enclave, lab, studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-happy' })
-        const { yjsForm, sendStateless } = buildStubYjsForm()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
             () => {
@@ -82,7 +66,7 @@ describe('useSubmitProposal', () => {
                     mode: 'controlled',
                     initialValues: buildValidProposalValues(user.id),
                 })
-                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                const submit = useSubmitProposal({ studyId, form, tabSessionId })
                 return { form, ...submit }
             },
             { wrapper: createTestQueryWrapper() },
@@ -92,7 +76,7 @@ describe('useSubmitProposal', () => {
             result.current.submitProposal()
         })
 
-        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1))
+        await waitFor(() => expect(events.events).toHaveLength(1))
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -101,13 +85,15 @@ describe('useSubmitProposal', () => {
             .executeTakeFirstOrThrow()
         expect(updatedStudy.status).toBe('PENDING-REVIEW')
 
-        const payload = JSON.parse(sendStateless.mock.calls[0][0] as string)
-        expect(payload.type).toBe('proposal-submitted')
-        expect(payload.studyId).toBe(studyId)
-        expect(payload.submittedByTabId).toBe(tabSessionId)
-        expect(typeof payload.submittedByName).toBe('string')
-        expect(payload.submittedByName.length).toBeGreaterThan(0)
-        expect(payload.orgName).toBe(enclave.name)
+        // Published by the action, in its transaction, naming this tab so it skips its own event.
+        expect(events.events[0]).toMatchObject({
+            studyId,
+            change: 'proposal-submitted',
+            submittedBy: { name: expect.stringMatching(/.+/) },
+            orgName: enclave.name,
+            originTabId: tabSessionId,
+        })
+        expect(events.executors[0].isTransaction).toBe(true)
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: lab.slug, studyId })))
     })
@@ -119,7 +105,7 @@ describe('useSubmitProposal', () => {
             enclaveSlug: 'submit-title-owner',
             studyInfo: { title: 'Chosen on Step 1' },
         })
-        const { yjsForm, sendStateless } = buildStubYjsForm()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
             () => {
@@ -127,7 +113,7 @@ describe('useSubmitProposal', () => {
                     mode: 'controlled',
                     initialValues: { ...buildValidProposalValues(user.id), title: 'stale Step 2 copy' },
                 })
-                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                const submit = useSubmitProposal({ studyId, form, tabSessionId })
                 return { form, ...submit }
             },
             { wrapper: createTestQueryWrapper() },
@@ -137,7 +123,7 @@ describe('useSubmitProposal', () => {
             result.current.submitProposal()
         })
 
-        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1))
+        await waitFor(() => expect(events.events).toHaveLength(1))
 
         const study = await db
             .selectFrom('study')
@@ -150,7 +136,7 @@ describe('useSubmitProposal', () => {
 
     it('does not call the action or navigate when validation fails', async () => {
         const { studyId } = await createTestProposalDraft({ enclaveSlug: 'submit-invalid' })
-        const { yjsForm, sendStateless } = buildStubYjsForm()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
             () => {
@@ -159,7 +145,7 @@ describe('useSubmitProposal', () => {
                     initialValues: initialProposalValues,
                     validate: zodResolver(proposalFormSchema),
                 })
-                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                const submit = useSubmitProposal({ studyId, form, tabSessionId })
                 return { form, ...submit }
             },
             { wrapper: createTestQueryWrapper() },
@@ -172,15 +158,15 @@ describe('useSubmitProposal', () => {
         const study = await db.selectFrom('study').select('status').where('id', '=', studyId).executeTakeFirstOrThrow()
         expect(study.status).toBe('DRAFT')
         expect(memoryRouter.asPath).toBe('/start')
-        expect(sendStateless).not.toHaveBeenCalled()
+        expect(events.events).toEqual([])
     })
 
-    it('reports an error and does not broadcast when the proposal was already submitted', async () => {
+    it('reports an error and publishes nothing when the proposal was already submitted', async () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-concurrent' })
 
         actionResult(await finalizeStudySubmissionAction({ studyId }))
 
-        const { yjsForm, sendStateless } = buildStubYjsForm()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
             () => {
@@ -188,7 +174,7 @@ describe('useSubmitProposal', () => {
                     mode: 'controlled',
                     initialValues: buildValidProposalValues(user.id),
                 })
-                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                const submit = useSubmitProposal({ studyId, form, tabSessionId })
                 return { form, ...submit }
             },
             { wrapper: createTestQueryWrapper() },
@@ -204,7 +190,7 @@ describe('useSubmitProposal', () => {
         )
         expect(errorCall).toBeDefined()
         expect(errorCall?.[0]).toMatchObject({ 'data-toast-kind': 'error', message: SUBMIT_FAILURE_MESSAGE })
-        expect(sendStateless).not.toHaveBeenCalled()
+        expect(events.events).toEqual([])
         // Staying on the form is what makes "your work is saved" recoverable.
         expect(memoryRouter.asPath).toBe('/start')
     })
@@ -213,14 +199,13 @@ describe('useSubmitProposal', () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-unsaved' })
         actionResult(await finalizeStudySubmissionAction({ studyId }))
 
-        const { yjsForm } = buildStubYjsForm()
         const { result } = renderHook(
             () => {
                 const form = useForm<ProposalFormValues>({
                     mode: 'controlled',
                     initialValues: buildValidProposalValues(user.id),
                 })
-                const submit = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                const submit = useSubmitProposal({ studyId, form, tabSessionId })
                 return { form, ...submit }
             },
             { wrapper: createTestQueryWrapper() },
@@ -257,14 +242,13 @@ describe('useSubmitProposal', () => {
         submitButton.scrollIntoView = vi.fn()
         document.body.appendChild(submitButton)
 
-        const { yjsForm } = buildStubYjsForm()
         const { result } = renderHook(
             () => {
                 const form = useForm<ProposalFormValues>({
                     mode: 'controlled',
                     initialValues: buildValidProposalValues(user.id),
                 })
-                return useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                return useSubmitProposal({ studyId, form, tabSessionId })
             },
             { wrapper: createTestQueryWrapper() },
         )
@@ -279,7 +263,6 @@ describe('useSubmitProposal', () => {
 
     it('announces a successful submission before navigating away (OTTER-691)', async () => {
         const { studyId, user } = await createTestProposalDraft({ enclaveSlug: 'submit-success-toast' })
-        const { yjsForm } = buildStubYjsForm()
 
         const { result } = renderHook(
             () => {
@@ -287,7 +270,7 @@ describe('useSubmitProposal', () => {
                     mode: 'controlled',
                     initialValues: buildValidProposalValues(user.id),
                 })
-                return useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+                return useSubmitProposal({ studyId, form, tabSessionId })
             },
             { wrapper: createTestQueryWrapper() },
         )

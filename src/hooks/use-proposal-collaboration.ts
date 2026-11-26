@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { type HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { type CollabFieldKey, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
 interface Args {
     studyId: string
@@ -23,8 +23,8 @@ interface Return {
 // Shared by the proposal-draft and change-requested resubmit flows, which co-edit the same
 // `proposal-${studyId}-*` Yjs documents and must not drift apart.
 export function useProposalCollaboration({ studyId, form, collabKeys }: Args): Return {
-    // One id per mount, so two tabs of the same Clerk user still differ.
-    const [tabSessionId] = useState(() => crypto.randomUUID())
+    // One id per tab, so two tabs of the same Clerk user still differ.
+    const { tabId: tabSessionId } = useStudyEvents()
 
     const websocketProvider = useYjsWebsocket()
 

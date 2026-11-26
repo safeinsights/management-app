@@ -52,16 +52,10 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     isDraftCreator = false,
     previousStep,
 }) => {
-    const { studyId, form, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm, tabSessionId } =
-        useEditResubmit()
+    const { studyId, form, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm } = useEditResubmit()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
-    useSubmissionRedirectListener({
-        provider: yjsForm.provider,
-        orgSlug,
-        studyId,
-        currentTabId: tabSessionId,
-    })
+    useSubmissionRedirectListener({ orgSlug, studyId, types: ['proposal-submitted'] })
 
     return (
         <StudyKickOutProvider

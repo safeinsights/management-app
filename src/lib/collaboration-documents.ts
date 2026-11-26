@@ -12,6 +12,7 @@ export const CODE_REVIEW_FEEDBACK_PREFIX = 'code-review-feedback-'
 export const OUTPUTS_REVIEW_FEEDBACK_PREFIX = 'outputs-review-feedback-'
 export const PROPOSAL_PREFIX = 'proposal-'
 export const CODE_SUBMISSION_PREFIX = 'code-submission-'
+export const STUDY_EVENTS_PREFIX = 'study-events-'
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const PROPOSAL_TEXT_SLUGS = ['research-questions', 'project-summary', 'impact', 'additional-notes'] as const
@@ -62,6 +63,9 @@ export const codeReviewFeedbackDocName = (jobId: string) => `${CODE_REVIEW_FEEDB
 // carries awareness and the `code-submitted` stateless event and is never persisted.
 export const codeSubmissionDocName = (studyId: string) => `${CODE_SUBMISSION_PREFIX}${studyId}`
 
+// Receive-only: the editor relays the server's study change events here (OTTER-974).
+export const studyEventsDocName = (studyId: string) => `${STUDY_EVENTS_PREFIX}${studyId}`
+
 // Job-keyed rather than study-keyed (OTTER-675) so a later round's editor lands in a
 // different Yjs room.
 export const outputsReviewFeedbackDocName = (jobId: string) => `${OUTPUTS_REVIEW_FEEDBACK_PREFIX}${jobId}`
@@ -73,8 +77,14 @@ export type ParsedDocumentName =
     | { kind: 'review-feedback'; studyId: string; version: number }
     | { kind: 'code-review-feedback'; jobId: string }
     | { kind: 'outputs-review-feedback'; jobId: string }
+    | { kind: 'study-events'; studyId: string }
 
 export const parseDocumentName = (name: string): ParsedDocumentName | null => {
+    if (name.startsWith(STUDY_EVENTS_PREFIX)) {
+        const studyId = name.slice(STUDY_EVENTS_PREFIX.length)
+        return UUID_RE.test(studyId) ? { kind: 'study-events', studyId } : null
+    }
+
     if (name.startsWith(OUTPUTS_REVIEW_FEEDBACK_PREFIX)) {
         const jobId = name.slice(OUTPUTS_REVIEW_FEEDBACK_PREFIX.length)
         if (!UUID_RE.test(jobId)) return null
@@ -119,3 +129,63 @@ export const parseDocumentName = (name: string): ParsedDocumentName | null => {
 }
 
 export { PROPOSAL_TEXT_FIELD_KEYS }
+
+// The Postgres channel the server publishes study change events on, and the editor listens to.
+export const STUDY_EVENTS_CHANNEL = 'study_events'
+
+export const STUDY_CHANGES = [
+    'job-status',
+    'study-status',
+    'proposal-submitted',
+    'proposal-review-submitted',
+    'code-submitted',
+    'code-review-submitted',
+    'outputs-review-submitted',
+    // Sent by the editor itself after its LISTEN connection comes back, never through pg_notify.
+    'resync',
+] as const
+export type StudyChange = (typeof STUDY_CHANGES)[number]
+
+export type StudyEvent = {
+    type: 'study-changed'
+    studyId: string
+    change: StudyChange
+    jobId?: string
+    submittedBy?: { name: string }
+    orgName?: string
+    originTabId?: string
+}
+
+const isBoundedString = (value: unknown, maxLength: number): value is string =>
+    typeof value === 'string' && value.length > 0 && value.length <= maxLength
+
+// Accepts the JSON text or the parsed value, and returns null for anything that is not an event.
+export function parseStudyEvent(raw: unknown): StudyEvent | null {
+    let value = raw
+    if (typeof raw === 'string') {
+        try {
+            value = JSON.parse(raw)
+        } catch {
+            return null
+        }
+    }
+    if (!value || typeof value !== 'object') return null
+    const { type, studyId, change, jobId, submittedBy, orgName, originTabId } = value as Record<string, unknown>
+    if (type !== 'study-changed') return null
+    if (typeof studyId !== 'string' || !UUID_RE.test(studyId)) return null
+    if (!(STUDY_CHANGES as readonly unknown[]).includes(change)) return null
+    if (jobId !== undefined && (typeof jobId !== 'string' || !UUID_RE.test(jobId))) return null
+    if (originTabId !== undefined && !isBoundedString(originTabId, 64)) return null
+    // Display-only: a bad name is dropped rather than the event, which still has to refresh pages.
+    const name = (submittedBy as { name?: unknown } | null | undefined)?.name
+
+    return {
+        type,
+        studyId,
+        change: change as StudyChange,
+        ...(jobId ? { jobId } : {}),
+        ...(isBoundedString(name, 500) ? { submittedBy: { name } } : {}),
+        ...(isBoundedString(orgName, 500) ? { orgName } : {}),
+        ...(originTabId ? { originTabId } : {}),
+    }
+}
