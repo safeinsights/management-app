@@ -156,8 +156,8 @@ export type StudyEvent = {
     originTabId?: string
 }
 
-const isOptionalString = (value: unknown, maxLength: number) =>
-    value === undefined || (typeof value === 'string' && value.length > 0 && value.length <= maxLength)
+const isBoundedString = (value: unknown, maxLength: number): value is string =>
+    typeof value === 'string' && value.length > 0 && value.length <= maxLength
 
 // Accepts the JSON text or the parsed value, and returns null for anything that is not an event.
 export function parseStudyEvent(raw: unknown): StudyEvent | null {
@@ -175,17 +175,17 @@ export function parseStudyEvent(raw: unknown): StudyEvent | null {
     if (typeof studyId !== 'string' || !UUID_RE.test(studyId)) return null
     if (!(STUDY_CHANGES as readonly unknown[]).includes(change)) return null
     if (jobId !== undefined && (typeof jobId !== 'string' || !UUID_RE.test(jobId))) return null
-    if (!isOptionalString(orgName, 500) || !isOptionalString(originTabId, 64)) return null
-    const name = (submittedBy as { name?: unknown } | undefined)?.name
-    if (submittedBy !== undefined && (typeof submittedBy !== 'object' || !isOptionalString(name, 500))) return null
+    if (originTabId !== undefined && !isBoundedString(originTabId, 64)) return null
+    // Display-only: a bad name is dropped rather than the event, which still has to refresh pages.
+    const name = (submittedBy as { name?: unknown } | null | undefined)?.name
 
     return {
         type,
         studyId,
         change: change as StudyChange,
         ...(jobId ? { jobId } : {}),
-        ...(typeof name === 'string' ? { submittedBy: { name } } : {}),
-        ...(typeof orgName === 'string' ? { orgName } : {}),
-        ...(typeof originTabId === 'string' ? { originTabId } : {}),
+        ...(isBoundedString(name, 500) ? { submittedBy: { name } } : {}),
+        ...(isBoundedString(orgName, 500) ? { orgName } : {}),
+        ...(originTabId ? { originTabId } : {}),
     }
 }

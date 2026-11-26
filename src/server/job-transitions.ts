@@ -25,9 +25,12 @@ export async function transitionJob(
         userId,
         message,
         publish = true,
+        originTabId,
     }: Omit<JobStatusWriteOptions, 'at'> & {
         // False for a decision action, which publishes its own decision event instead.
         publish?: boolean
+        // The tab that asked for the write, which skips its own event.
+        originTabId?: string
     },
 ): Promise<JobStatusWriteResult> {
     try {
@@ -43,7 +46,7 @@ export async function transitionJob(
             // On the transaction, so open pages hear of the new row only once it commits. A repeat
             // or a no-op writes no row, so it publishes nothing.
             if ((result.outcome === 'moved' || result.outcome === 'logged') && publish) {
-                await notifyStudyChanged(trx, { studyId: result.studyId, jobId, change: 'job-status' })
+                await notifyStudyChanged(trx, { studyId: result.studyId, jobId, change: 'job-status', originTabId })
             }
             return result
         })

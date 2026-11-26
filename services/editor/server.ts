@@ -60,7 +60,8 @@ log('startup.config', {
 
 const SI_ADMIN_ORG_SLUG = 'safe-insights'
 
-// Catches the study events LISTEN connection that dies without a close, which no event reports.
+// Lets the OS notice a study events LISTEN connection that dies without a close, which no event
+// reports. The probe interval and count stay at the OS defaults, so on Linux that takes minutes.
 const KEEPALIVE_INITIAL_DELAY_MS = 30_000
 
 // ResilientPool re-reads the secret and rebuilds itself if a deploy rotates the DB password, so the

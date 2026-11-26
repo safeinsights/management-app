@@ -3,15 +3,18 @@
 import { type FC, useEffect, useRef } from 'react'
 import { captureException } from '@sentry/nextjs'
 import { useMutation } from '@/common'
+import { useStudyEvents } from '@/hooks/use-study-events'
 import { queryKeys } from '@/lib/query-keys'
 import { actionResult } from '@/lib/utils'
 import { markOutputsDecisionViewedAction } from '@/server/actions/study-job.actions'
 
 // Failures go to Sentry only: the reader cannot act on them.
 export function useMarkOutputsDecisionViewed(studyId: string) {
+    const { tabId } = useStudyEvents()
     const { mutate } = useMutation({
+        // With the tab id, so decrypting does not refresh the page the reader is looking at.
         mutationFn: async (decrypted: boolean) =>
-            actionResult(await markOutputsDecisionViewedAction({ studyId, decrypted })),
+            actionResult(await markOutputsDecisionViewedAction({ studyId, decrypted, originTabId: tabId })),
         // Dashboard rows keep for a minute and never refetch on focus, so leaving by the in-app link
         // would land on the badge this write just superseded.
         invalidates: () => [queryKeys.researcherOrgStudiesAll(), queryKeys.researcherUserStudies()],

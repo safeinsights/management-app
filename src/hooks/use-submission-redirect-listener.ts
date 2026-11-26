@@ -46,9 +46,9 @@ export function useSubmissionRedirectListener({ orgSlug, studyId, types, jobId, 
 
     const handle = useEffectEvent((event: StudyEvent) => {
         const type = event.change as SubmissionEventType
-        const submittedByName = event.submittedBy?.name
+        const submittedByName = event.submittedBy?.name ?? 'Someone'
         // Filtered before the latch, so an event this screen ignores cannot use up its one redirect.
-        if (!types.includes(type) || event.studyId !== studyId || !submittedByName) return
+        if (!types.includes(type) || event.studyId !== studyId) return
         if (jobId && event.jobId !== jobId) return
         if (hasFiredRef.current) return
         hasFiredRef.current = true

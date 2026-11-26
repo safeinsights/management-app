@@ -138,6 +138,18 @@ describe('study events', () => {
         })
     })
 
+    it('keeps an event whose display fields are unusable, without them', () => {
+        expect(
+            parseStudyEvent({
+                type: 'study-changed',
+                studyId,
+                change: 'code-submitted',
+                submittedBy: { name: '' },
+                orgName: '',
+            }),
+        ).toEqual({ type: 'study-changed', studyId, change: 'code-submitted' })
+    })
+
     it('refuses anything that is not a well-formed event', () => {
         expect(parseStudyEvent('not json')).toBeNull()
         expect(parseStudyEvent({ type: 'other', studyId, change: 'job-status' })).toBeNull()

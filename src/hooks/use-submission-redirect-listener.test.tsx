@@ -117,6 +117,15 @@ describe('useSubmissionRedirectListener', () => {
         expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/view`)
     })
 
+    it('still closes the page when the submitter has no name', async () => {
+        await mountListener(['code-submitted'])
+        emitStudyEvent({ studyId, change: 'code-submitted' })
+        expect(lastToast().message).toBe(
+            'Someone has submitted the code for review. No further edits are allowed at this point.',
+        )
+        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/view`)
+    })
+
     // OTTER-726: the outputs round closes for everyone at once, and the reviewer who is still
     // typing has to be told who ended it rather than finding out when their own submit fails.
     it('closes the outputs review on outputs-review-submitted', async () => {

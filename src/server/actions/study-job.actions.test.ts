@@ -510,7 +510,13 @@ describe('Study Job Actions', () => {
             const events = captureStudyEvents()
             await approve(fixture)
             signInAsResearcher(fixture)
-            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+            actionResult(
+                await markOutputsDecisionViewedAction({
+                    studyId: fixture.study.id,
+                    decrypted: true,
+                    originTabId: 'tab-1',
+                }),
+            )
 
             expect(events.events).toEqual([
                 expect.objectContaining({
@@ -519,7 +525,7 @@ describe('Study Job Actions', () => {
                     change: 'outputs-review-submitted',
                     submittedBy: { name: expect.stringMatching(/.+/) },
                 }),
-                { studyId: fixture.study.id, jobId: fixture.job.id, change: 'job-status' },
+                { studyId: fixture.study.id, jobId: fixture.job.id, change: 'job-status', originTabId: 'tab-1' },
             ])
             expect(events.executors.every((executor) => executor.isTransaction)).toBe(true)
         })

@@ -324,10 +324,16 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionViewedAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string(), decrypted: z.boolean().optional() }))
+    .params(
+        z.object({
+            studyId: z.string(),
+            decrypted: z.boolean().optional(),
+            originTabId: z.string().max(64).optional(),
+        }),
+    )
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId, decrypted }, session, db, submittedByOrgId }) => {
+    .handler(async ({ params: { studyId, decrypted, originTabId }, session, db, submittedByOrgId }) => {
         // Only the lab's own view counts. Silent, not a failure: reviewers reach this page too.
         if (!isSessionOrgMember(session, submittedByOrgId)) return
 
@@ -341,6 +347,6 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
 
         const job = latestJob(raw.jobs)
         if (!job) return
-        await transitionJob(db, job.id, 'RESULTS-VIEWED', { actor: 'researcher', userId: session.user.id })
+        await transitionJob(db, job.id, 'RESULTS-VIEWED', { actor: 'researcher', userId: session.user.id, originTabId })
         await markStudyOpened(db, { studyId, userId: session.user.id })
     })
