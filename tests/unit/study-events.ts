@@ -6,8 +6,8 @@ import * as studyEvents from '@/server/study-events'
 // A pass-through spy: the real pg_notify still runs, so Postgres checks the channel and payload,
 // and the test transaction's rollback drops it. Records each event and the executor it ran on.
 export function captureStudyEvents() {
-    // A spy from an earlier test stays installed, so start from no calls.
     const spy = vi.spyOn(studyEvents, 'notifyStudyChanged')
+    // Records from this call on, so events the test's own setup published are not counted.
     spy.mockClear()
     return {
         get events() {

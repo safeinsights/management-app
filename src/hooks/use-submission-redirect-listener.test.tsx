@@ -29,7 +29,6 @@ describe('useSubmissionRedirectListener', () => {
         __resetSharedYjsWebsocketForTests()
         studyId = faker.string.uuid()
         memoryRouter.setCurrentUrl('/start')
-        ;(notifications.show as Mock).mockClear()
     })
 
     // Mounted under the real study events provider, as the study layout mounts it. Returns this

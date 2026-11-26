@@ -33,7 +33,6 @@ describe('StudyEventsProvider', () => {
         __resetSharedYjsWebsocketForTests()
         studyId = faker.string.uuid()
         jobId = faker.string.uuid()
-        routerRefresh().mockClear()
     })
 
     // Two active queries, one under the study and one under a job, counting their fetches, plus a
