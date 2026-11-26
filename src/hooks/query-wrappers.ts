@@ -74,16 +74,41 @@ export function useQuery<TApiData>(
     })
 }
 
+// The keys a write changes. Every query under them is refetched if active, or marked stale.
+export type InvalidatedKeys = readonly (readonly unknown[])[]
+
+// Invalidates on error too, because a failed write can have committed part of its work. The
+// caller's onSuccess runs after active queries refetch, so it sees fresh data. onError does not
+// wait: a refetch can stall as long as the failure that caused it, and error feedback must not.
 export function useMutation<TApiData, TVariables = void>(
     options: {
         mutationFn: (variables: TVariables) => Promise<ActionResponse<TApiData>>
+        invalidates?: (variables: TVariables, data: TApiData | undefined) => InvalidatedKeys
+        // False starts the refetch without holding the caller's callbacks until it ends.
+        awaitInvalidation?: boolean
     } & Omit<UseMutationOptions<TApiData, Error, TVariables>, 'mutationFn'>,
 ): UseMutationResult<TApiData, Error, TVariables> {
+    const queryClient = useQueryClient()
+    const { invalidates, awaitInvalidation = true, onSuccess, onError, ...rest } = options
+    const invalidate = (variables: TVariables, data: TApiData | undefined) => {
+        const keys = invalidates?.(variables, data) ?? []
+        return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
+    }
+
     return useTanStackMutation<TApiData, Error, TVariables>({
-        ...options,
+        ...rest,
         mutationFn: async (variables: TVariables) => {
             const response = await options.mutationFn(variables)
             return processResponse(response)
+        },
+        onSuccess: async (...args: Parameters<NonNullable<typeof onSuccess>>) => {
+            const refetches = invalidate(args[1], args[0])
+            if (awaitInvalidation) await refetches
+            return onSuccess?.(...args)
+        },
+        onError: (...args: Parameters<NonNullable<typeof onError>>) => {
+            void invalidate(args[1], undefined)
+            return onError?.(...args)
         },
     })
 }

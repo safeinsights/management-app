@@ -10,17 +10,17 @@ import {
 import { ResearcherProfileLayout } from '@/components/researcher-profile/researcher-profile-view'
 
 export default function ResearcherProfilePage() {
-    const { data, refetch } = useResearcherProfile()
+    const { data } = useResearcherProfile()
 
     return (
         <ResearcherProfileLayout>
-            <PersonalInfoSection data={data} refetch={refetch} />
+            <PersonalInfoSection data={data} />
 
-            <EducationSection data={data} refetch={refetch} />
+            <EducationSection data={data} />
 
-            <PositionsSection data={data} refetch={refetch} />
+            <PositionsSection data={data} />
 
-            <ResearchDetailsSection data={data} refetch={refetch} />
+            <ResearchDetailsSection data={data} />
         </ResearcherProfileLayout>
     )
 }

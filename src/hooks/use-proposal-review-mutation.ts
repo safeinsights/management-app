@@ -1,12 +1,11 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
-import { useMutation, useQueryClient } from '@/common'
+import { useMutation } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { captureException } from '@sentry/nextjs'
-import { pushDecided } from '@/lib/navigation'
 import { DECISION_NOTICES, type Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { useSubmitOnce } from '@/hooks/use-submit-once'
@@ -32,8 +31,6 @@ export function useProposalReviewMutation({
     reviewVersion,
 }: UseProposalReviewMutationOptions) {
     const router = useRouter()
-    const pathname = usePathname()
-    const queryClient = useQueryClient()
     const { user } = useUser()
     // The editor's provider is authenticated since page mount, so the server's onStateless gate
     // passes; a private provider could still be mid-handshake and get dropped silently.
@@ -47,12 +44,12 @@ export function useProposalReviewMutation({
     } = useMutation({
         mutationFn: async (args: SubmitReviewArgs) =>
             actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
+        invalidates: () => [queryKeys.reviewerOrgStudies(orgSlug)],
         onError: (err) => {
             captureException(err)
             showToast(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.reviewerOrgStudies(orgSlug) })
             showToast(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
@@ -67,7 +64,7 @@ export function useProposalReviewMutation({
                 editorProvider.sendStateless(JSON.stringify(event))
             }
 
-            pushDecided(router, pathname, Routes.studyReview({ orgSlug, studyId }))
+            router.push(Routes.studyReview({ orgSlug, studyId }))
         },
     })
 

@@ -2,7 +2,6 @@
 
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
-import { revalidatePath } from 'next/cache'
 import { Action, ActionFailure } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { jsonArrayFrom } from '@/database'
@@ -26,7 +25,6 @@ import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import logger from '@/lib/logger'
 import type { DB, Language } from '@/database/types'
 import type { Kysely } from 'kysely'
-import { Routes } from '@/lib/routes'
 import { AUDITED_CODE_ENV_FIELDS, diffFields } from '@/lib/audit-diff'
 import { onCodeEnvCreated, onCodeEnvDeleted, onCodeEnvUpdated } from '@/server/events'
 
@@ -191,8 +189,6 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
                 .execute()
         }
 
-        revalidatePath(Routes.adminSettings({ orgSlug }))
-
         if (SIMULATE_CODE_BUILD) {
             await insertFakeCodeScan(newCodeEnv.id, db)
         } else {
@@ -291,8 +287,6 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 .values(dataSourceIds.map((dataSourceId) => ({ dataSourceId, codeEnvId })))
                 .execute()
         }
-
-        revalidatePath(Routes.adminSettings({ orgSlug }))
 
         if (updatedCodeEnv.url !== prevUrl) {
             if (SIMULATE_CODE_BUILD) {
@@ -432,8 +426,6 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             changes: diffFields(priorCodeEnv, {}, AUDITED_CODE_ENV_FIELDS),
             name: priorCodeEnv.name,
         })
-
-        revalidatePath(Routes.adminSettings({ orgSlug }))
     })
 
 const fetchCodeEnvHistorySchema = z.object({

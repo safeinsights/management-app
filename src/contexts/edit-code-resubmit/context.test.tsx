@@ -7,6 +7,7 @@ import {
     afterEach,
     cleanupWorkspaceDirs,
     codeResubmissionNoteDraftOf,
+    createTestQueryClient,
     createWorkspaceDir,
     fakeTimeouts,
     fireEvent,
@@ -21,6 +22,7 @@ import {
     writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
 import { stubJobQueue } from '@/tests/job-queue.helpers'
+import { queryKeys } from '@/lib/query-keys'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from './context'
 import { saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 
@@ -156,5 +158,27 @@ describe('EditCodeResubmitProvider', () => {
             type: 'code-submitted',
             studyId: study.id,
         })
+    })
+
+    it('marks the cached previews of the resubmitted round stale, since the round keeps its job id', async () => {
+        stubJobQueue()
+        const { study, job } = await setupSubmittedCode({ changesRequested: true })
+        const root = await createWorkspaceDir('resubmit-previews')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, { 'main.r': 'print("fixed")' })
+        const queryClient = createTestQueryClient()
+        const previewKey = queryKeys.jobCodeFile(job.id, 'main.r')
+        queryClient.setQueryData(previewKey, { fileName: 'main.r', contents: 'print("old")' })
+
+        renderWithProviders(
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="fixed the loop">
+                <Harness onSaveResult={vi.fn()} />
+            </EditCodeResubmitProvider>,
+            { queryClient },
+        )
+        fireEvent.click(screen.getByRole('button', { name: 'Resubmit' }))
+
+        await waitForPendingMutations()
+        expect(queryClient.getQueryState(previewKey)?.isInvalidated).toBe(true)
     })
 })

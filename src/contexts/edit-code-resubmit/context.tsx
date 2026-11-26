@@ -11,6 +11,7 @@ import {
     CODE_SUBMIT_SUCCESS_TITLE,
     reportSubmissionFailure,
 } from '@/contexts/proposal/hooks/submission-toasts'
+import { queryKeys } from '@/lib/query-keys'
 import { Routes } from '@/lib/routes'
 import {
     initialResubmitNoteValue,
@@ -145,6 +146,8 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
                 fileNames: args.fileNames,
                 resubmissionNote: pendingValueRef.current,
             }),
+        // The round keeps its job id, so cached previews of its replaced files have to go.
+        invalidates: (_, data) => (data ? [queryKeys.job(data.studyJobId)] : []),
         onSuccess: () => {
             lastSavedValueRef.current = pendingValueRef.current
             showToast({ category: 'success', title: CODE_SUBMIT_SUCCESS_TITLE, message: '' })

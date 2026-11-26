@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@/common'
+import { useMutation, useQuery } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { reportMutationError } from '@/components/errors'
@@ -68,7 +68,6 @@ const useCanDropTestLabs = () => {
 }
 
 const useTestLabs = (orgSlug: string, isVisible: boolean) => {
-    const queryClient = useQueryClient()
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
 
     // The action refuses a lab org by design; without this the query still fires and retries.
@@ -87,9 +86,8 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
 
     const designate = useMutation({
         mutationFn: async (researchLabIds: string[]) => await designateTestLabsAction({ orgSlug, researchLabIds }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orgTestLabs(orgSlug) })
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orgEligibleTestLabs(orgSlug) })
+        invalidates: () => [queryKeys.orgTestLabs(orgSlug), queryKeys.orgEligibleTestLabs(orgSlug)],
+        onSuccess: () => {
             showToast({ category: 'success', title: 'Success', message: 'Test labs were added successfully' })
             closeModal()
         },
@@ -98,13 +96,10 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
 
     const undesignate = useMutation({
         mutationFn: async (testLabId: string) => await undesignateTestLabAction({ orgSlug, testLabId }),
+        // Also runs on failure, so a row another admin already dropped leaves the table.
+        invalidates: () => [queryKeys.orgTestLabs(orgSlug), queryKeys.orgEligibleTestLabs(orgSlug)],
         onSuccess: () => showToast({ category: 'success', title: 'Success', message: 'Test lab was dropped' }),
         onError: reportMutationError('Failed to drop test lab'),
-        // On failure too, so a row another admin already dropped leaves the table.
-        onSettled: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orgTestLabs(orgSlug) })
-            await queryClient.invalidateQueries({ queryKey: queryKeys.orgEligibleTestLabs(orgSlug) })
-        },
     })
 
     return { designated, eligible, designate, undesignate, isModalOpen, openModal, closeModal }

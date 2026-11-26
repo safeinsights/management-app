@@ -2,26 +2,19 @@
 
 import { type FC, useEffect, useRef } from 'react'
 import { captureException } from '@sentry/nextjs'
-import { useMutation, useQueryClient } from '@/common'
+import { useMutation } from '@/common'
 import { queryKeys } from '@/lib/query-keys'
 import { actionResult } from '@/lib/utils'
 import { markOutputsDecisionViewedAction } from '@/server/actions/study-job.actions'
 
 // Failures go to Sentry only: the reader cannot act on them.
 export function useMarkOutputsDecisionViewed(studyId: string) {
-    const queryClient = useQueryClient()
     const { mutate } = useMutation({
         mutationFn: async (decrypted: boolean) =>
             actionResult(await markOutputsDecisionViewedAction({ studyId, decrypted })),
         // Dashboard rows keep for a minute and never refetch on focus, so leaving by the in-app link
         // would land on the badge this write just superseded.
-        onSuccess: async () => {
-            await Promise.all(
-                [queryKeys.researcherOrgStudiesAll(), queryKeys.researcherUserStudies()].map((queryKey) =>
-                    queryClient.invalidateQueries({ queryKey }),
-                ),
-            )
-        },
+        invalidates: () => [queryKeys.researcherOrgStudiesAll(), queryKeys.researcherUserStudies()],
         // Nothing else asks again: the reader is already past the decision, and the callers fire once.
         retry: 2,
         onError: (error) => captureException(error),

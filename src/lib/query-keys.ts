@@ -62,6 +62,7 @@ export const queryKeys = {
     orgTestLabs: (orgSlug: string) => ['org', orgSlug, 'test-labs'] as const,
     orgEligibleTestLabs: (orgSlug: string) => ['org', orgSlug, 'eligible-test-labs'] as const,
     orgPendingUsers: (orgSlug: string) => ['org', orgSlug, 'pending-users'] as const,
+    orgUsersAll: (orgSlug: string) => ['org', orgSlug, 'users'] as const,
     orgUsers: (orgSlug: string, sort: UserSort) => ['org', orgSlug, 'users', sort] as const,
 
     inviteOrgInfo: (inviteId: string) => ['invite', inviteId, 'org-info'] as const,

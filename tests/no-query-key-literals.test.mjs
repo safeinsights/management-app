@@ -30,6 +30,8 @@ ruleTester.run('noQueryKeyLiterals', noQueryKeyLiterals, {
         "doSomething(['x'], value)",
         '<AgreementsTable queryKey={(sort) => queryKeys.legal.userStudyAgreements(sort)} />',
         'useQuery({ queryKey: cond ? queryKeys.orgs() : queryKeys.study(id), queryFn })',
+        'useMutation({ mutationFn, invalidates: () => [queryKeys.orgs(), ...keys] })',
+        'useMutation({ mutationFn, invalidates: () => keys })',
     ],
     invalid: [
         { code: "useQuery({ queryKey: ['x'], queryFn })", errors },
@@ -46,5 +48,9 @@ ruleTester.run('noQueryKeyLiterals', noQueryKeyLiterals, {
         { code: "useQuery({ queryKey: cond ? queryKeys.orgs() : ['x'], queryFn })", errors },
         { code: "queryClient.setQueryData(['x', id] as const, value)", errors },
         { code: "<AgreementsTable queryKey={['x'] as const} />", errors },
+        { code: "useMutation({ mutationFn, invalidates: () => [['org', slug]] })", errors },
+        { code: "useMutation({ mutationFn, invalidates: function () { return [queryKeys.orgs(), ['x']] } })", errors },
+        { code: "useMutation({ mutationFn, invalidates: () => [['x'] as const] })", errors },
+        { code: "useMutation({ mutationFn, invalidates: () => (cond ? [['x']] : []) })", errors },
     ],
 })

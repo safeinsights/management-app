@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import {
     renderWithProviders,
@@ -18,9 +18,8 @@ describe('PositionsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
@@ -44,9 +43,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('Institutional affiliation')).toBeDefined()
@@ -63,9 +61,8 @@ describe('PositionsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
@@ -105,9 +102,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -161,9 +157,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -192,9 +187,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -230,9 +224,8 @@ describe('PositionsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
@@ -256,9 +249,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -290,9 +282,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} readOnly />)
+        renderWithProviders(<PositionsSection data={data} readOnly />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -319,9 +310,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} readOnly />)
+        renderWithProviders(<PositionsSection data={data} readOnly />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -344,9 +334,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('Stanford')).toBeDefined()
@@ -381,9 +370,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -427,9 +415,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -468,9 +455,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -509,9 +495,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -552,9 +537,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -584,9 +568,8 @@ describe('PositionsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
@@ -616,9 +599,8 @@ describe('PositionsSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()

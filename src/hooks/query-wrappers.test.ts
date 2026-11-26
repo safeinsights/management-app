@@ -1,4 +1,15 @@
-import { describe, it, expect, vi, beforeEach, renderHook, waitFor, createTestQueryWrapper } from '@/tests/unit.helpers'
+import {
+    act,
+    beforeEach,
+    createTestQueryClient,
+    createTestQueryWrapper,
+    describe,
+    expect,
+    it,
+    renderHook,
+    vi,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { useQuery, useMutation } from './query-wrappers'
 import { type ActionResponse } from '@/lib/types'
 import { queryKeys } from '@/lib/query-keys'
@@ -101,6 +112,112 @@ describe('Query Wrappers', () => {
             await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
             expect(result.current.data).toEqual(mockData)
+        })
+    })
+
+    describe('useMutation invalidates', () => {
+        const key = queryKeys.study('invalidated')
+
+        // A query whose second and later fetches wait until the test releases them, so the test can
+        // see what the mutation does while the refetch is still in flight.
+        const setup = (mutationFn: () => Promise<ActionResponse<string>>) => {
+            const order: string[] = []
+            let release = () => {}
+            let fetches = 0
+            const queryFn = () => {
+                fetches++
+                if (fetches === 1) return Promise.resolve('first')
+                order.push('refetch started')
+                return new Promise<string>((resolve) => {
+                    release = () => {
+                        order.push('refetch done')
+                        resolve('second')
+                    }
+                })
+            }
+            const onSettled = vi.fn()
+            const { result } = renderHook(
+                () => ({
+                    query: useQuery({ queryKey: key, queryFn }),
+                    mutation: useMutation<string, void>({
+                        mutationFn,
+                        invalidates: () => [key],
+                        onSuccess: () => void order.push('onSuccess'),
+                        onError: () => void order.push('onError'),
+                        onSettled,
+                    }),
+                }),
+                { wrapper: createTestQueryWrapper({ queryClient: createTestQueryClient() }) },
+            )
+            return { result, order, onSettled, release: () => release() }
+        }
+
+        it('refetches an active query before the caller onSuccess runs, and stays pending until then', async () => {
+            const { result, order, onSettled, release } = setup(() => Promise.resolve('saved'))
+            await waitFor(() => expect(result.current.query.data).toBe('first'))
+
+            act(() => result.current.mutation.mutate())
+            await waitFor(() => expect(order).toEqual(['refetch started']))
+            expect(result.current.mutation.isPending).toBe(true)
+
+            act(() => release())
+            await waitFor(() => expect(result.current.mutation.isSuccess).toBe(true))
+            expect(order).toEqual(['refetch started', 'refetch done', 'onSuccess'])
+            expect(result.current.query.data).toBe('second')
+            expect(onSettled).toHaveBeenCalledOnce()
+        })
+
+        it('refetches on a failed write too, without holding the caller onError until it ends', async () => {
+            const { result, order, onSettled, release } = setup(() => Promise.resolve({ error: 'nope' }))
+            await waitFor(() => expect(result.current.query.data).toBe('first'))
+
+            act(() => result.current.mutation.mutate())
+            await waitFor(() => expect(result.current.mutation.isError).toBe(true))
+            expect(order).toEqual(['refetch started', 'onError'])
+            expect(onSettled).toHaveBeenCalledOnce()
+
+            act(() => release())
+            await waitFor(() => expect(result.current.query.data).toBe('second'))
+        })
+
+        it('runs the caller onSuccess without waiting for the refetch when awaitInvalidation is false', async () => {
+            const order: string[] = []
+            let fetches = 0
+            const queryFn = () => {
+                fetches++
+                if (fetches === 1) return Promise.resolve('first')
+                order.push('refetch started')
+                return new Promise<string>(() => {})
+            }
+            const { result } = renderHook(
+                () => ({
+                    query: useQuery({ queryKey: key, queryFn }),
+                    mutation: useMutation<string, void>({
+                        mutationFn: () => Promise.resolve('saved'),
+                        invalidates: () => [key],
+                        awaitInvalidation: false,
+                        onSuccess: () => void order.push('onSuccess'),
+                    }),
+                }),
+                { wrapper: createTestQueryWrapper({ queryClient: createTestQueryClient() }) },
+            )
+            await waitFor(() => expect(result.current.query.data).toBe('first'))
+
+            act(() => result.current.mutation.mutate())
+            await waitFor(() => expect(result.current.mutation.isSuccess).toBe(true))
+            expect(order).toEqual(['refetch started', 'onSuccess'])
+        })
+
+        it('passes the variables and the result to invalidates', async () => {
+            const invalidates = vi.fn(() => [])
+            const { result } = renderHook(
+                () => useMutation({ mutationFn: (id: string) => Promise.resolve(`saved ${id}`), invalidates }),
+                { wrapper: createTestQueryWrapper() },
+            )
+
+            act(() => result.current.mutate('a'))
+            await waitFor(() => expect(result.current.isSuccess).toBe(true))
+            expect(invalidates).toHaveBeenCalledWith('a', 'saved a')
         })
     })
 })

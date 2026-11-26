@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { captureException } from '@sentry/nextjs'
-import { useMutation, useQuery, useQueryClient } from '@/common'
+import { useMutation, useQuery } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import type { ActivityState, OutputFileRowData } from '@/components/study/outputs-file-row'
 import { downloadBlob } from '@/lib/download-blob'
@@ -38,7 +38,6 @@ type UseOutputsFilesOptions = {
 
 export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOptions) {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const queryClient = useQueryClient()
     const [viewing, setViewing] = useState<OutputFileRowData | null>(null)
     const [isPreparingZip, setIsPreparingZip] = useState(false)
 
@@ -65,12 +64,12 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
                     action: variables.action,
                 }),
             ),
+        // Refetch rather than optimistically patch: the row shows the actor's name and the
+        // server's timestamp, neither of which the client can produce accurately.
+        invalidates: () => [queryKeys.jobFileActivity(jobId, orgSlug)],
         // Not surfaced: an audit side effect of an action that already succeeded, so a toast would
         // report a failure the reviewer cannot act on and did not cause.
         onError: (error) => captureException(error),
-        // Refetch rather than optimistically patch: the row shows the actor's name and the
-        // server's timestamp, neither of which the client can produce accurately.
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.jobFileActivity(jobId, orgSlug) }),
     })
 
     const rows = useMemo<OutputFileRowData[]>(() => {

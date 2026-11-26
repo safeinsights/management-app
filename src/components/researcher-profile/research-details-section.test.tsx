@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { useState } from 'react'
 import { screen, waitFor, fireEvent, act } from '@testing-library/react'
 import {
@@ -21,9 +21,8 @@ describe('ResearchDetailsSection', () => {
             await insertTestResearcherProfile({ userId: user.id })
 
             const data = await getTestResearcherProfileData(user.id)
-            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+            renderWithProviders(<ResearchDetailsSection data={data} />)
 
             const input = screen.getByPlaceholderText('Type a research interest and press enter')
             await userEvents.type(input, 'Machine Learning{Enter}')
@@ -46,9 +45,8 @@ describe('ResearchDetailsSection', () => {
             })
 
             const data = await getTestResearcherProfileData(user.id)
-            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+            renderWithProviders(<ResearchDetailsSection data={data} />)
 
             const editButton = screen.getByRole('button', { name: /edit/i })
             await userEvents.click(editButton)
@@ -83,9 +81,8 @@ describe('ResearchDetailsSection', () => {
             })
 
             const data = await getTestResearcherProfileData(user.id)
-            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+            renderWithProviders(<ResearchDetailsSection data={data} />)
 
             const editButton = screen.getByRole('button', { name: /edit/i })
             await userEvents.click(editButton)
@@ -114,9 +111,8 @@ describe('ResearchDetailsSection', () => {
             })
 
             const data = await getTestResearcherProfileData(user.id)
-            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+            renderWithProviders(<ResearchDetailsSection data={data} />)
 
             const editButton = screen.getByRole('button', { name: /edit/i })
             await userEvents.click(editButton)
@@ -150,9 +146,8 @@ describe('ResearchDetailsSection', () => {
             })
 
             const data = await getTestResearcherProfileData(user.id)
-            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+            renderWithProviders(<ResearchDetailsSection data={data} />)
 
             const editButton = screen.getByRole('button', { name: /edit/i })
             await userEvents.click(editButton)
@@ -185,9 +180,8 @@ describe('ResearchDetailsSection', () => {
             })
 
             const data = await getTestResearcherProfileData(user.id)
-            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+            renderWithProviders(<ResearchDetailsSection data={data} />)
 
             const editButton = screen.getByRole('button', { name: /edit/i })
             await userEvents.click(editButton)
@@ -214,9 +208,8 @@ describe('ResearchDetailsSection', () => {
             await insertTestResearcherProfile({ userId: user.id })
 
             const data = await getTestResearcherProfileData(user.id)
-            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+            renderWithProviders(<ResearchDetailsSection data={data} />)
 
             const input = screen.getByPlaceholderText('Type a research interest and press enter')
 
@@ -242,7 +235,7 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={vi.fn()} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         await userEvents.click(screen.getByPlaceholderText('Type a research interest and press enter'))
         await userEvents.tab()
@@ -257,9 +250,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'AI Research{Enter}')
@@ -291,9 +283,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         // Type the interest last and never press Enter, so the draft is uncommitted at submit.
         const urlInput = screen.getByPlaceholderText('https://scholar.google.com/user...')
@@ -334,7 +325,6 @@ describe('ResearchDetailsSection', () => {
         })
 
         const initialData = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         // Mutate harness state directly rather than clicking, so the input never blurs.
         let deliverRefetch: () => void = () => {}
@@ -352,7 +342,7 @@ describe('ResearchDetailsSection', () => {
                           }
                         : prev,
                 )
-            return <ResearchDetailsSection data={data} refetch={refetch} />
+            return <ResearchDetailsSection data={data} />
         }
 
         renderWithProviders(<Harness />)
@@ -386,7 +376,6 @@ describe('ResearchDetailsSection', () => {
         })
 
         const initialData = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         let deliverRefetch: () => void = () => {}
         const Harness = () => {
@@ -403,7 +392,7 @@ describe('ResearchDetailsSection', () => {
                           }
                         : prev,
                 )
-            return <ResearchDetailsSection data={data} refetch={refetch} />
+            return <ResearchDetailsSection data={data} />
         }
 
         renderWithProviders(<Harness />)
@@ -434,9 +423,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'Bioinformatics')
@@ -455,9 +443,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'AI Research{Enter}')
@@ -471,7 +458,6 @@ describe('ResearchDetailsSection', () => {
         await waitFor(() => {
             expect(screen.getByText(/must start with http:\/\/ or https:\/\//i)).toBeDefined()
         })
-        expect(refetch).not.toHaveBeenCalled()
     })
 
     // A tab/window switch reaches the field as a bare focusout, indistinguishable from the
@@ -483,9 +469,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'Ephemeral Idea')
@@ -505,9 +490,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'Committed Idea')
@@ -525,9 +509,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'Uncommitted Draft')
@@ -547,9 +530,8 @@ describe('ResearchDetailsSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+        renderWithProviders(<ResearchDetailsSection data={data} />)
 
         const interestInput = screen.getByPlaceholderText('Type a research interest and press enter')
         await userEvents.type(interestInput, 'Genomics{Enter}')

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@/common'
+import { useMutation, useQuery } from '@/common'
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
@@ -80,7 +80,6 @@ function hasChangedSinceLastJob(
 }
 
 export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEFilesOptions) {
-    const queryClient = useQueryClient()
     const router = useRouter()
 
     const [viewingFile, setViewingFile] = useState<{ name: string; contents: ArrayBuffer } | null>(null)
@@ -91,13 +90,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     // than claiming a page nobody has touched is saved.
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
-    const { canEditInIde, isIdeClaimed, ideOwnerName, refresh: refreshIdeOwnership } = useIdeOwnership(studyId)
+    const { canEditInIde, isIdeClaimed, ideOwnerName } = useIdeOwnership(studyId)
 
-    const onLaunchSuccess = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
-        queryClient.invalidateQueries({ queryKey: queryKeys.lastJob(studyId) })
-        refreshIdeOwnership()
-    }, [queryClient, studyId, refreshIdeOwnership])
+    const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
 
     const {
         launchWorkspace,
@@ -112,9 +107,18 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         lastUpdatedAt: launchLastUpdatedAt,
         buildLog: launchBuildLog,
         agentLog: launchAgentLog,
-    } = useWorkspaceLauncher({ studyId, onSuccess: onLaunchSuccess })
-
-    const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
+    } = useWorkspaceLauncher({
+        studyId,
+        // The launch claims the IDE and opens the round's job; a new round also stamps the study opened.
+        invalidates: () => [
+            queryKeys.ideOwner(studyId),
+            queryKeys.lastJob(studyId),
+            queryKeys.studyTables(),
+            queryKeys.navUnreadAll(),
+        ],
+        // The workspace files exist only once its url arrives, after the launch call settles.
+        onSuccess: workspace.refetch,
+    })
 
     const { data: lastJob } = useQuery({
         queryKey: queryKeys.lastJob(studyId),
@@ -181,16 +185,10 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         [selectMainFile],
     )
 
-    const invalidateFiles = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
-    }, [queryClient, studyId])
-
     const deleteMutation = useMutation({
         mutationFn: (fileName: string) => deleteWorkspaceFileAction({ studyId, fileName }),
-        onSuccess: () => {
-            invalidateFiles()
-            setLastSavedAt(new Date())
-        },
+        invalidates: () => [queryKeys.workspaceFiles(studyId)],
+        onSuccess: () => setLastSavedAt(new Date()),
         onError: reportMutationError('Failed to delete file'),
     })
 
@@ -218,19 +216,15 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     const closeFileViewer = useCallback(() => setViewingFile(null), [])
 
     // Recorded before launching so Last activity reflects the pencil even if the launch then fails.
-    const editFileInIde = useCallback(
-        async (fileName: string) => {
-            // Reported but not returned on: the launch should still go ahead, but a permission
-            // denial or a DB failure must not vanish along with the Last activity row.
-            const result = await recordWorkspaceFileEditAction({ studyId, fileName })
-            if (result && 'error' in result)
-                reportMutationError('Failed to record file edit')(new ActionFailure(result.error, result.eventId))
-
-            queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
-            launchWorkspace()
-        },
-        [studyId, queryClient, launchWorkspace],
-    )
+    const { mutate: recordFileEdit } = useMutation({
+        mutationFn: (fileName: string) => recordWorkspaceFileEditAction({ studyId, fileName }),
+        invalidates: () => [queryKeys.workspaceFiles(studyId)],
+        // Reported, and the launch still goes ahead: a permission denial or a DB failure must not
+        // vanish along with the Last activity row.
+        onError: reportMutationError('Failed to record file edit'),
+        onSettled: () => launchWorkspace(),
+    })
+    const editFileInIde = useCallback((fileName: string) => recordFileEdit(fileName), [recordFileEdit])
 
     // Reuses the same read as the viewer rather than a download route: workspace files live on disk
     // under the study's coder path, not in S3, so there is nothing to link to (OTTER-693).
@@ -263,12 +257,9 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         },
         // Per-file failures no longer reject, so the count is the only thing that says whether
         // anything was actually kept. onError still fires for transport-level failures.
+        invalidates: () => [queryKeys.workspaceFiles(studyId), queryKeys.lastJob(studyId)],
         onSuccess: (uploaded) => {
             if (uploaded > 0) setLastSavedAt(new Date())
-        },
-        onSettled: () => {
-            invalidateFiles()
-            queryClient.invalidateQueries({ queryKey: queryKeys.lastJob(studyId) })
         },
         onError: reportMutationError('Failed to upload files'),
     })
@@ -300,13 +291,14 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
                 mainFileName: mainFile,
                 fileNames,
             }),
+        invalidates: () => [
+            queryKeys.researcherOrgStudiesAll(),
+            queryKeys.researcherUserStudies(),
+            queryKeys.userOrgs(),
+            queryKeys.workspaceFiles(studyId),
+            queryKeys.lastJob(studyId),
+        ],
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.researcherOrgStudiesAll() })
-            queryClient.invalidateQueries({ queryKey: queryKeys.researcherUserStudies() })
-            queryClient.invalidateQueries({ queryKey: queryKeys.userOrgs() })
-            queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
-            queryClient.invalidateQueries({ queryKey: queryKeys.lastJob(studyId) })
-
             showToast({ category: 'success', title: SUBMIT_SUCCESS_TITLE })
 
             if (onSubmitSuccess) {

@@ -1,7 +1,7 @@
 'use client'
 
 import { Stack, Text, Group, ActionIcon, Tooltip, Collapse, Grid, GridCol, Box } from '@mantine/core'
-import { useQuery, useQueryClient, useMutation } from '@/common'
+import { useQuery, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modals/app-modal'
@@ -38,15 +38,6 @@ type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
 // Module-level, so a render that has no data yet does not mint a new array identity each time.
 const NO_CODE_ENVS: CodeEnv[] = []
-
-// Data source rows list their code envs, so a code env change must refresh them too.
-const useInvalidateCodeEnvs = (orgSlug: string) => {
-    const queryClient = useQueryClient()
-    return () => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.orgCodeEnvs(orgSlug) })
-        queryClient.invalidateQueries({ queryKey: queryKeys.orgDataSources(orgSlug) })
-    }
-}
 
 const LABEL_SPAN = { base: 12, sm: 3 }
 const VALUE_SPAN = { base: 12, sm: 9 }
@@ -160,8 +151,6 @@ const CodeEnvRow: React.FC<{
     isDefault: boolean
 }> = ({ image, canDelete, isDefault }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const queryClient = useQueryClient()
-    const invalidateCodeEnvs = useInvalidateCodeEnvs(orgSlug)
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
     const [codeViewerOpened, { open: openCodeViewer, close: closeCodeViewer }] = useDisclosure(false)
     const [scanResultsOpened, { open: openScanResults, close: closeScanResults }] = useDisclosure(false)
@@ -172,8 +161,14 @@ const CodeEnvRow: React.FC<{
 
     const deleteMutation = useMutation({
         mutationFn: deleteOrgCodeEnvAction,
+        // Data source rows list their code envs, so a code env change must refresh them too.
+        invalidates: () => [
+            queryKeys.orgCodeEnvs(orgSlug),
+            queryKeys.orgDataSources(orgSlug),
+            queryKeys.orgLanguages(orgSlug),
+            queryKeys.orgsWithLanguages(),
+        ],
         onSuccess: () => {
-            invalidateCodeEnvs()
             showToast({ category: 'success', title: 'Success', message: 'Code environment was deleted successfully' })
         },
         onError: reportMutationError('Failed to delete code environment'),
@@ -185,12 +180,6 @@ const CodeEnvRow: React.FC<{
         isLoading: isLoadingHistory,
         isError: isHistoryError,
     } = useCodeEnvHistory(orgSlug, image.id, historyOpened)
-
-    const handleEditComplete = () => {
-        closeEditModal()
-        invalidateCodeEnvs()
-        queryClient.invalidateQueries({ queryKey: queryKeys.orgCodeEnvHistory(orgSlug, image.id) })
-    }
 
     const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
 
@@ -270,7 +259,7 @@ const CodeEnvRow: React.FC<{
             />
 
             <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment" size="xl">
-                <CodeEnvForm image={image} isLastUsable={!canDelete} onCompleteAction={handleEditComplete} />
+                <CodeEnvForm image={image} isLastUsable={!canDelete} onCompleteAction={closeEditModal} />
             </AppModal>
             <AppModal
                 isOpen={codeViewerOpened}
@@ -354,19 +343,12 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
 
 export const CodeEnvs: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const invalidateCodeEnvs = useInvalidateCodeEnvs(orgSlug)
-
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
     const query = useQuery({
         queryKey: queryKeys.orgCodeEnvs(orgSlug),
         queryFn: async () => await fetchOrgCodeEnvsAction({ orgSlug }),
     })
-
-    const handleFormComplete = () => {
-        closeAddModal()
-        invalidateCodeEnvs()
-    }
 
     const codeEnvs = query.data ?? NO_CODE_ENVS
     const shouldRefresh = needsRefresh(codeEnvs)
@@ -384,7 +366,7 @@ export const CodeEnvs: React.FC = () => {
             </CodeEnvsView>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Code Environment" size="xl">
-                <CodeEnvForm onCompleteAction={handleFormComplete} />
+                <CodeEnvForm onCompleteAction={closeAddModal} />
             </AppModal>
         </>
     )

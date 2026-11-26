@@ -13,12 +13,7 @@ import { queryKeys } from '@/lib/query-keys'
 
 type User = OrgUserReturn
 
-const PermissionSelector: React.FC<{ orgSlug: string; user: User; isSelf: boolean; onSuccess: () => void }> = ({
-    orgSlug,
-    user,
-    isSelf,
-    onSuccess,
-}) => {
+const PermissionSelector: React.FC<{ orgSlug: string; user: User; isSelf: boolean }> = ({ orgSlug, user, isSelf }) => {
     const { mutate, isPending, variables } = useMutation({
         mutationFn: ({ user, label }: { user: User; label: string }) =>
             updateUserRoleAction({
@@ -26,7 +21,7 @@ const PermissionSelector: React.FC<{ orgSlug: string; user: User; isSelf: boolea
                 userId: user.id,
                 isAdmin: label == 'Administrator',
             }),
-        onSuccess,
+        invalidates: () => [queryKeys.orgUsersAll(orgSlug)],
         onError: reportMutationError('Failed to update user permission'),
     })
 
@@ -52,11 +47,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         direction: 'asc',
     })
 
-    const {
-        data: users,
-        isLoading,
-        refetch,
-    } = useQuery({
+    const { data: users, isLoading } = useQuery({
         queryKey: queryKeys.orgUsers(orgSlug, sort),
         queryFn: () =>
             getUsersForOrgAction({ orgSlug, sort: { columnAccessor: 'fullName', direction: sort.direction } }),
@@ -69,12 +60,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             onSortChange={setSortStatus}
             fetching={isLoading}
             renderPermission={(user) => (
-                <PermissionSelector
-                    user={user}
-                    isSelf={user.id === session?.user.id}
-                    onSuccess={refetch}
-                    orgSlug={orgSlug}
-                />
+                <PermissionSelector user={user} isSelf={user.id === session?.user.id} orgSlug={orgSlug} />
             )}
         />
     )

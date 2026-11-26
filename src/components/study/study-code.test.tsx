@@ -305,11 +305,14 @@ describe('StudyCode component', () => {
             { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
         ])
 
-        expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({
-                title: 'Code submitted.',
-                'data-toast-kind': 'success',
-            }),
+        // The toast follows the refetch of the study's queries, which the write waits for.
+        await waitFor(() =>
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    title: 'Code submitted.',
+                    'data-toast-kind': 'success',
+                }),
+            ),
         )
     })
 
@@ -1612,6 +1615,8 @@ describe('StudyCode component', () => {
             vi.mocked(createUserAndWorkspace).mockClear()
             await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
             await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+            // The retried launch fails the same way; it has to settle before the test ends.
+            await waitForPendingMutations()
         })
 
         it('keeps the generic text when no reason is available', async () => {
@@ -1724,6 +1729,8 @@ describe('StudyCode component', () => {
                     .execute()
                 expect(rows).toEqual([{ fileName: 'fresh.R', action: 'UPLOADED' }])
             })
+            // The upload stays pending until the file list it changed has refetched.
+            await waitForPendingMutations()
         })
 
         it('records an IDE edit against the file whose pencil was clicked', async () => {
@@ -2032,11 +2039,14 @@ describe('StudyCode component', () => {
                 { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
             ])
 
-            expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    title: 'Code submitted.',
-                    'data-toast-kind': 'success',
-                }),
+            // The toast follows the refetch of the study's queries, which the write waits for.
+            await waitFor(() =>
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        title: 'Code submitted.',
+                        'data-toast-kind': 'success',
+                    }),
+                ),
             )
         })
     })

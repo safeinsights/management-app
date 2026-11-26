@@ -1,13 +1,12 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 import { useUser } from '@clerk/nextjs'
-import { useMutation, useQueryClient } from '@/common'
+import { useMutation } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { captureException } from '@sentry/nextjs'
 import { DECISION_NOTICES, type CodeDecision } from '@/lib/review-decision'
-import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
@@ -33,8 +32,6 @@ interface UseCodeReviewMutationOptions {
 
 export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }: UseCodeReviewMutationOptions) {
     const router = useRouter()
-    const pathname = usePathname()
-    const queryClient = useQueryClient()
     const { user } = useUser()
 
     const broadcastProvider = useBroadcastProvider(codeReviewFeedbackDocName(jobId))
@@ -46,12 +43,12 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         variables: pendingReview,
     } = useMutation({
         mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
+        invalidates: () => [queryKeys.reviewerOrgStudies(orgSlug)],
         onError: (err) => {
             captureException(err)
             showToast(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.reviewerOrgStudies(orgSlug) })
             showToast(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
@@ -67,7 +64,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
             }
 
             // Not bare /review, which REVIEWER_SCREEN_RULES resolves past this screen.
-            pushDecided(router, pathname, Routes.studyReviewCode({ orgSlug, studyId }))
+            router.push(Routes.studyReviewCode({ orgSlug, studyId }))
         },
     })
 

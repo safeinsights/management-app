@@ -43,6 +43,7 @@ export function useMainFile({ studyId, fileNames, previousMainFile, onSaved }: U
 
     const saveMainFile = useMutation({
         mutationFn: (fileName: string) => setMainCodeFileAction({ studyId, fileName }),
+        invalidates: () => [queryKeys.mainCodeFile(studyId)],
         onSuccess: onSaved,
         onError: (error) => {
             setOverride(previousOverrideRef.current)

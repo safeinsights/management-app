@@ -22,6 +22,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { Language } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
+import { queryKeys } from '@/lib/query-keys'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 type CreateFormValues = z.infer<typeof createOrgCodeEnvSchema>
@@ -181,6 +182,15 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         mutationFn: async (values: CreateFormValues | EditFormValues) => {
             return isEditMode ? handleEdit(values as EditFormValues) : handleCreate(values as CreateFormValues)
         },
+        // Data source rows list their code envs, and proposal setup builds its languages from them,
+        // so those refresh too. A new env has no history yet.
+        invalidates: () => [
+            queryKeys.orgCodeEnvs(orgSlug),
+            queryKeys.orgDataSources(orgSlug),
+            queryKeys.orgLanguages(orgSlug),
+            queryKeys.orgsWithLanguages(),
+            ...(image ? [queryKeys.orgCodeEnvHistory(orgSlug, image.id)] : []),
+        ],
         onSuccess: () => {
             showToast({
                 category: 'success',

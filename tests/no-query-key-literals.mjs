@@ -19,6 +19,16 @@ const keyLiterals = (node) => {
     return node.type === 'ArrayExpression' ? [node] : []
 }
 
+// The key literals inside the arrays an `invalidates: () => [...]` function returns.
+const returnedKeyLiterals = (fn) => {
+    if (fn.type !== 'ArrowFunctionExpression' && fn.type !== 'FunctionExpression') return []
+    const returned =
+        fn.body.type === 'BlockStatement'
+            ? fn.body.body.filter((statement) => statement.type === 'ReturnStatement').map((r) => r.argument)
+            : [fn.body]
+    return returned.flatMap(keyLiterals).flatMap((keys) => keys.elements.flatMap(keyLiterals))
+}
+
 const noQueryKeyLiterals = {
     meta: {
         type: 'problem',
@@ -36,7 +46,9 @@ const noQueryKeyLiterals = {
 
         return {
             Property(node) {
-                if (propertyName(node) === 'queryKey') keyLiterals(node.value).forEach(report)
+                const name = propertyName(node)
+                if (name === 'queryKey') keyLiterals(node.value).forEach(report)
+                if (name === 'invalidates') returnedKeyLiterals(node.value).forEach(report)
             },
             JSXAttribute(node) {
                 const { value } = node

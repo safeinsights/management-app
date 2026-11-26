@@ -26,6 +26,7 @@ import {
     usePublishReviewFeedbackProvider,
 } from '@/lib/realtime/review-feedback-provider-context'
 import { useProposalReviewMutation } from './use-proposal-review-mutation'
+import { refresh } from 'next/cache'
 
 // Published into ReviewFeedbackProviderShare to imitate CollaborativeEditor's `onProviderReady`.
 type StubProvider = {
@@ -140,8 +141,7 @@ describe('useProposalReviewMutation', () => {
         const provider = createStubProvider()
         const reviewUrl = Routes.studyReview({ orgSlug: org.slug, studyId: study.id })
         memoryRouter.setCurrentUrl(reviewUrl)
-        const refresh = (memoryRouter as unknown as { refresh: Mock }).refresh
-        refresh.mockClear()
+        const routerRefresh = (memoryRouter as unknown as { refresh: Mock }).refresh
 
         const { result } = renderHook(
             () =>
@@ -165,15 +165,16 @@ describe('useProposalReviewMutation', () => {
                 .executeTakeFirstOrThrow()
             expect(updated.status).toBe(expectedStatus)
             expect(result.current.isSubmitting).toBe(true)
+            expect(provider.sendStateless).toHaveBeenCalledTimes(1)
         })
 
-        expect(provider.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(provider.sendStateless.mock.calls[0][0] as string)
         expect(payload.type).toBe('proposal-review-submitted')
         expect(payload.studyId).toBe(study.id)
         expect(payload.submittedByTabId).toBe(tabSessionId)
-        // The editable screen is already this URL, so push alone would leave the locked form mounted.
-        expect(refresh).toHaveBeenCalledTimes(1)
+        // The action re-renders the current route itself, so the client sends no second refresh.
+        expect(vi.mocked(refresh)).toHaveBeenCalledTimes(1)
+        expect(routerRefresh).not.toHaveBeenCalled()
     })
 
     it('no editor provider published: navigates without broadcasting', async () => {

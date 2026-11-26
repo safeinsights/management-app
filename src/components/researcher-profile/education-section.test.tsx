@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { useState } from 'react'
 import { screen, waitFor } from '@testing-library/react'
 import {
@@ -26,9 +26,8 @@ describe('EducationSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<EducationSection data={data} refetch={refetch} />)
+        renderWithProviders(<EducationSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
@@ -51,9 +50,8 @@ describe('EducationSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<EducationSection data={data} refetch={refetch} />)
+        renderWithProviders(<EducationSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText('Degree (currently pursuing)')).toBeDefined()
@@ -74,7 +72,6 @@ describe('EducationSection', () => {
         })
 
         const initialData = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         // Swaps in changed server data mid-edit, as a periodic or window-focus refetch would.
         const Harness = () => {
@@ -92,7 +89,7 @@ describe('EducationSection', () => {
                     >
                         simulate-refetch
                     </button>
-                    <EducationSection data={data} refetch={refetch} />
+                    <EducationSection data={data} />
                 </>
             )
         }
@@ -127,9 +124,8 @@ describe('EducationSection', () => {
         })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<EducationSection data={data} refetch={refetch} />)
+        renderWithProviders(<EducationSection data={data} />)
 
         const editButton = screen.getByRole('button', { name: /edit/i })
         await userEvents.click(editButton)
@@ -145,7 +141,6 @@ describe('EducationSection', () => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({ title: 'Saved', 'data-toast-kind': 'success' }),
             )
-            expect(refetch).toHaveBeenCalled()
         })
 
         const updated = await db

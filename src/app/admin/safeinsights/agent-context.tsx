@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm, useMutation, useQuery, useQueryClient } from '@/common'
+import { useForm, useMutation, useQuery } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/agent-context'
 import { reportMutationError } from '@/components/errors'
 import { getAgentContextAction, writeAgentContextAction } from '@/server/actions/agent-context.actions'
@@ -16,17 +16,15 @@ type ContextProps = { name: ContextName; orgId: string | null }
 type EditorFormValues = { content: string }
 
 function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & { initialContent: string }) {
-    const queryClient = useQueryClient()
-
     const form = useForm<EditorFormValues>({
         initialValues: { content: initialContent },
     })
 
     const { mutate, isPending } = useMutation({
         mutationFn: writeAgentContextAction,
+        invalidates: () => [queryKeys.agentContext(name, orgId)],
         onSuccess: (_, variables) => {
             form.resetDirty({ content: variables.content })
-            queryClient.invalidateQueries({ queryKey: queryKeys.agentContext(name, orgId) })
             showToast({
                 category: 'success',
                 title: 'Context saved',
