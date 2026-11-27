@@ -1,7 +1,6 @@
 // OTTER-682 (RISK-139): Trojan Source (CVE-2021-42574) and hidden-instruction characters, in every tracked file.
-// Keep this file and bin/check-invisible-unicode.mjs in step with iac scripts/invisible-unicode.mjs and
-// scripts/check-invisible-unicode.mjs. U+2800 (Braille blank) has no invisible property but renders as a space.
-// A file or symlink target name needs no control character at all.
+// Keep this file and bin/check-invisible-unicode.mjs in step with their copies in iac scripts/. Names need no
+// control character. U+2800 (Braille blank) has no invisible property but renders as a space.
 const INVISIBLE_IN_NAME = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}\u2028\u2029\u2800]/gu
 // TAB and a CRLF line ending are the only controls a text file needs. A lone CR hides the text before it in a
 // terminal.

@@ -1,10 +1,10 @@
 import { Buffer } from 'node:buffer'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
-import { afterAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { findInvisibleCharacters, findInvisibleInName } from './invisible-unicode.mjs'
 
 const SCRIPT = resolve('bin/check-invisible-unicode.mjs')
@@ -96,18 +96,8 @@ describe('findInvisibleInName', () => {
 })
 
 describe('bin/check-invisible-unicode.mjs', () => {
-    const tempDirs = []
-    const makeTempDir = () => {
-        const dir = mkdtempSync(join(tmpdir(), 'invisible-unicode-'))
-        tempDirs.push(dir)
-        return dir
-    }
-    afterAll(() => {
-        for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true })
-    })
-
     const runCheck = (files, symlinks = {}, untracked = {}) => {
-        const dir = makeTempDir()
+        const dir = mkdtempSync(join(tmpdir(), 'invisible-unicode-'))
         for (const [name, content] of Object.entries({ ...files, ...untracked }))
             writeFileSync(join(dir, name), content)
         for (const [name, target] of Object.entries(symlinks)) symlinkSync(target, join(dir, name))
@@ -185,7 +175,7 @@ describe('bin/check-invisible-unicode.mjs', () => {
 
     // A tool error must fail the step, unlike `git grep` exit 128 inside a shell `if`.
     it('fails when the folder is not a git repository', () => {
-        const dir = makeTempDir()
+        const dir = mkdtempSync(join(tmpdir(), 'invisible-unicode-'))
         const { status, stdout } = spawnSync(process.execPath, [SCRIPT], {
             cwd: dir,
             encoding: 'utf8',
