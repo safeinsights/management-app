@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs'
 import { extname } from 'node:path'
 import process from 'node:process'
+import { TextDecoder } from 'node:util'
 import { findInvisibleCharacters, findInvisibleInName } from '../tests/invisible-unicode.mjs'
 
 // Skipped by name, not by content: a NUL byte must not let a text file opt out of the check.
