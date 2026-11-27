@@ -1,10 +1,13 @@
+import { Buffer } from 'node:buffer'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { describe, expect, it } from 'vitest'
-import { findInvisibleCharacters } from './invisible-unicode.mjs'
+import { findInvisibleCharacters, findInvisibleInName } from './invisible-unicode.mjs'
+
+const SCRIPT = resolve('bin/check-invisible-unicode.mjs')
 
 const withNames = (codePoints) => codePoints.map((cp) => [`U+${cp.toString(16).toUpperCase().padStart(4, '0')}`, cp])
 
@@ -77,14 +80,30 @@ describe('findInvisibleCharacters', () => {
     })
 })
 
+describe('findInvisibleInName', () => {
+    it.each([
+        ['U+0009', 'a\tb.md'],
+        ['U+000A', 'a\nb.md'],
+        ['U+000D', 'a.md\r'],
+        ['U+202E', 'rules\u202Edm.png'],
+    ])('reports %s, which file contents may contain', (codePoint, name) => {
+        expect(findInvisibleInName(name)).toEqual([codePoint])
+    })
+
+    it('accepts a visible name', () => {
+        expect(findInvisibleInName('docs/caf\u00E9 \u65E5\u672C.md')).toEqual([])
+    })
+})
+
 describe('bin/check-invisible-unicode.mjs', () => {
-    const runCheck = (files, symlinks = {}) => {
+    const runCheck = (files, symlinks = {}, untracked = {}) => {
         const dir = mkdtempSync(join(tmpdir(), 'invisible-unicode-'))
-        for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content)
+        for (const [name, content] of Object.entries({ ...files, ...untracked }))
+            writeFileSync(join(dir, name), content)
         for (const [name, target] of Object.entries(symlinks)) symlinkSync(target, join(dir, name))
         execFileSync('git', ['init', '--quiet'], { cwd: dir, stdio: 'ignore' })
         execFileSync('git', ['add', '--', ...Object.keys(files), ...Object.keys(symlinks)], { cwd: dir })
-        return spawnSync(process.execPath, [resolve('bin/check-invisible-unicode.mjs')], { cwd: dir, encoding: 'utf8' })
+        return spawnSync(process.execPath, [SCRIPT], { cwd: dir, encoding: 'utf8' })
     }
 
     it('passes clean tracked files', () => {
@@ -106,6 +125,40 @@ describe('bin/check-invisible-unicode.mjs', () => {
         expect(stdout).toContain('No invisible Unicode characters in 2 tracked files')
     })
 
+    it('does not follow a symlink to a file that is not tracked', () => {
+        const { status, stdout } = runCheck(
+            { 'CLAUDE.md': '# Rules\n' },
+            { link: 'notes.md' },
+            { 'notes.md': '\u202E' },
+        )
+        expect(status, stdout).toBe(0)
+    })
+
+    it('reports an invisible character in a symlink target', () => {
+        const { status, stdout } = runCheck({ 'CLAUDE.md': '# Rules\n' }, { link: 'rules\u202Edm.png' })
+        expect(status).toBe(1)
+        expect(stdout).toContain('::error file=link::The symlink target contains U+202E. Change the target.')
+    })
+
+    it('fails a UTF-16 file instead of reading it as UTF-8', () => {
+        const utf16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('a\u202Eb', 'utf16le')])
+        const { status, stdout } = runCheck({ 'notes.md': utf16 })
+        expect(status).toBe(1)
+        expect(stdout).toContain('::error file=notes.md::The file is not valid UTF-8')
+    })
+
+    it('reports a UTF-8 byte order mark at the start of a file', () => {
+        const { status, stdout } = runCheck({ 'app.ts': '\uFEFFexport const a = 1\n' })
+        expect(status).toBe(1)
+        expect(stdout).toContain('::error file=app.ts,line=1,col=1::U+FEFF')
+    })
+
+    it('reports a tab in a file name', () => {
+        const { status, stdout } = runCheck({ 'a\tb.md': '' })
+        expect(status).toBe(1)
+        expect(stdout).toContain('::The file name contains U+0009. Rename the file.')
+    })
+
     it('skips binary files by extension', () => {
         expect(runCheck({ 'icon.png': '\0\u202E' }).status).toBe(0)
     })
@@ -118,5 +171,17 @@ describe('bin/check-invisible-unicode.mjs', () => {
 
     it('escapes the file name in the annotation', () => {
         expect(runCheck({ 'a,b:c.md': '\u200B' }).stdout).toContain('::error file=a%2Cb%3Ac.md,line=1,col=1::U+200B')
+    })
+
+    // A tool error must fail the step, unlike `git grep` exit 128 inside a shell `if`.
+    it('fails when the folder is not a git repository', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'invisible-unicode-'))
+        const { status, stdout } = spawnSync(process.execPath, [SCRIPT], {
+            cwd: dir,
+            encoding: 'utf8',
+            env: { ...process.env, GIT_CEILING_DIRECTORIES: dirname(dir) },
+        })
+        expect(status).toBe(1)
+        expect(stdout).not.toContain('No invisible Unicode characters')
     })
 })
