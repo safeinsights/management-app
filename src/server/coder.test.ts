@@ -732,6 +732,14 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         return Promise.resolve({ ok: false, status: 404, text: vi.fn().mockResolvedValue('Not found') })
     }
 
+    const routeTimedOutAgent = (buildStatus: string) => (url: string) => {
+        if (!url.includes('/workspace/')) return routeFetch({ build: { id: buildId, status: buildStatus } })(url)
+
+        const agent = { id: agentId, lifecycle_state: 'created', status: 'timeout', apps: [] }
+        const latest_build = { id: buildId, status: buildStatus, resources: [{ agents: [agent] }] }
+        return Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue({ id: 'ws-1', latest_build }) })
+    }
+
     beforeEach(async () => {
         process.env = { ...ORIGINAL_ENV }
         vi.resetAllMocks()
@@ -759,6 +767,7 @@ describe('getCoderWorkspaceLaunchStatus', () => {
 
         expect(status.buildStatus).toBe('running')
         expect(status.ready).toBe(false)
+        expect(status.failed).toBe(false)
         expect(status.url).toBeNull()
         expect(status.buildLogLines).toEqual(['init', 'go'])
         expect(status.agentLogLines).toEqual(['agent up'])
@@ -809,6 +818,28 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         expect(status.failed).toBe(true)
         expect(status.reason).toBe('terraform exploded')
         expect(status.url).toBeNull()
+    })
+
+    // SHRMP-465: on Fargate a refused image pull still builds, so this is the only failure signal.
+    it('reports a launch as failed when the build succeeded but the agent timed out', async () => {
+        ;(global.fetch as unknown as Mock).mockImplementation(routeTimedOutAgent('running'))
+
+        const status = await getCoderWorkspaceLaunchStatus(studyId)
+
+        expect(status.failed).toBe(true)
+        expect(status.ready).toBe(false)
+        expect(status.url).toBeNull()
+        expect(status.reason).toContain('status=timeout')
+        expect(status.failureMessage).toBe('The workspace was created, but the IDE never became ready.')
+    })
+
+    it('keeps waiting on a timed-out agent while a new build is still starting', async () => {
+        ;(global.fetch as unknown as Mock).mockImplementation(routeTimedOutAgent('starting'))
+
+        const status = await getCoderWorkspaceLaunchStatus(studyId)
+
+        expect(status.failed).toBe(false)
+        expect(status.failureMessage).toBeNull()
     })
 
     it('survives a failing log fetch and still returns status from the other source', async () => {
