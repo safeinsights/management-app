@@ -4,9 +4,8 @@ import { useEffect } from 'react'
 import { useForm, useMutation, useState, z, zodResolver } from '@/common'
 import { errorToString, isClerkApiError } from '@/lib/errors'
 import { onUserResetPWAction } from '@/server/actions/user.actions'
-import { useSignIn } from '@clerk/nextjs/legacy'
-import type { SignInResource } from '@clerk/nextjs/types'
-import { signInToMFAState, type MFAState } from '../signin/logic'
+import { useSignIn } from '@clerk/nextjs'
+import { sendPhoneCodeIfOnlyFactor, throwOnClerkError } from '../signin/logic'
 import { useCompleteSignIn } from '../signin/use-complete-sign-in'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from './password-requirements'
 
@@ -36,9 +35,9 @@ const verificationFormSchema = z
 
 type VerificationFormValues = z.infer<typeof verificationFormSchema>
 
-export function usePendingReset(pendingReset: SignInResource, onResetUpdate?: (updated: SignInResource) => void) {
-    const { isLoaded, setActive, signIn } = useSignIn()
-    const [needsMFA, setNeedsMFA] = useState<MFAState>(false)
+export function usePendingReset(identifier: string | null) {
+    const { signIn } = useSignIn()
+    const [needsMFA, setNeedsMFA] = useState(false)
     const completeSignIn = useCompleteSignIn()
     const [verificationError, setVerificationError] = useState<string | null>(null)
     const [canResend, setCanResend] = useState(true)
@@ -56,16 +55,17 @@ export function usePendingReset(pendingReset: SignInResource, onResetUpdate?: (u
 
     const { isPending, mutate: onSubmitVerification } = useMutation({
         async mutationFn(form: VerificationFormValues) {
-            if (!isLoaded || (!signIn && (!pendingReset || Object.keys(pendingReset).length === 0))) return
             setVerificationError(null)
 
-            const resetInstance = signIn ?? pendingReset
-
-            return await resetInstance!.attemptFirstFactor({
-                strategy: 'reset_password_email_code',
-                code: form.code,
-                password: form.password,
-            })
+            // A retry after a rejected password: the code is already spent and verified.
+            if (signIn.status !== 'needs_new_password') {
+                await throwOnClerkError(signIn.resetPasswordEmailCode.verifyCode({ code: form.code }))
+            }
+            // Clerk defaults this to true; the legacy reset left other sessions signed in.
+            await throwOnClerkError(
+                signIn.resetPasswordEmailCode.submitPassword({ password: form.password, signOutOfOtherSessions: false }),
+            )
+            return signIn.status
         },
         onError(error: unknown) {
             if (!isClerkApiError(error)) {
@@ -86,22 +86,15 @@ export function usePendingReset(pendingReset: SignInResource, onResetUpdate?: (u
                 form: error as unknown as string,
             })
         },
-        async onSuccess(info?: SignInResource) {
-            if (!setActive || !info) {
-                verificationForm.setErrors({
-                    password: 'An unknown error occurred, please try again later.',
-                })
-                return
-            }
-
-            if (info.status == 'complete') {
-                await setActive({ session: info.createdSessionId })
+        async onSuccess(status: string) {
+            if (status == 'complete') {
+                await throwOnClerkError(signIn.finalize())
                 await onUserResetPWAction()
                 // A reset hands back a live session, so the same post-sign-in sequence applies.
                 await completeSignIn()
-            } else if (info.status == 'needs_second_factor') {
-                const state = await signInToMFAState(info)
-                setNeedsMFA(state)
+            } else if (status == 'needs_second_factor') {
+                await sendPhoneCodeIfOnlyFactor(signIn)
+                setNeedsMFA(true)
             } else {
                 verificationForm.setErrors({
                     password: 'An unknown error occurred, please try again later.',
@@ -112,26 +105,17 @@ export function usePendingReset(pendingReset: SignInResource, onResetUpdate?: (u
 
     const { mutate: resendCode, isPending: isResending } = useMutation({
         mutationFn: async () => {
-            if (!pendingReset || !signIn) return
-            const identifier = pendingReset.identifier
             if (!identifier) {
                 verificationForm.setFieldError('code', 'An unknown error occurred, please try again later.')
                 return
             }
 
-            return await signIn.create({
-                strategy: 'reset_password_email_code',
-                identifier,
-            })
+            await throwOnClerkError(signIn.resetPasswordEmailCode.sendCode())
         },
         onError: (error: unknown) => {
             console.error('Failed to resend code:', error)
         },
-        onSuccess: (newSignIn) => {
-            if (newSignIn && onResetUpdate) {
-                onResetUpdate(newSignIn)
-            }
-
+        onSuccess: () => {
             setCanResend(false)
         },
     })

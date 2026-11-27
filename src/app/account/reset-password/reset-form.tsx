@@ -1,14 +1,14 @@
 'use client'
 
 import { errorToString } from '@/lib/errors'
-import { useSignIn } from '@clerk/nextjs/legacy'
-import type { SignInResource } from '@clerk/nextjs/types'
+import { useSignIn } from '@clerk/nextjs'
 import { useForm, useMutation } from '@/common'
 import { isEmail } from '@mantine/form'
+import { throwOnClerkError } from '../signin/logic'
 import { ResetFormValues, ResetFormView } from './reset-form-view'
 
 interface ResetFormProps {
-    onCompleteAction: (_reset: SignInResource) => void
+    onCompleteAction: (identifier: string | null) => void
 }
 
 export function ResetForm({ onCompleteAction }: ResetFormProps) {
@@ -25,24 +25,22 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
 
     const { isPending, mutate: onSubmitEmail } = useMutation({
         async mutationFn(form: ResetFormValues) {
-            if (!signIn) return
-            return await signIn.create({
-                strategy: 'reset_password_email_code',
-                identifier: form.email,
-            })
+            await throwOnClerkError(signIn.create({ identifier: form.email }))
+            await throwOnClerkError(signIn.resetPasswordEmailCode.sendCode())
+            return form.email
         },
         onError(error: unknown) {
             // Clerk reporting email-not-found must not confirm whether an address is registered.
             const message = errorToString(error)
             if (message.includes('find your account')) {
-                onCompleteAction({} as SignInResource)
+                onCompleteAction(null)
                 return
             }
             emailForm.setErrors({ email: message })
         },
-        onSuccess(info?: SignInResource) {
-            if (info) {
-                onCompleteAction(info)
+        onSuccess(email?: string) {
+            if (email) {
+                onCompleteAction(email)
             } else {
                 emailForm.setErrors({
                     email: 'An unknown error occurred, please try again later.',

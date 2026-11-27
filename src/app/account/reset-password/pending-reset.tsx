@@ -2,18 +2,12 @@
 
 import { ClerkErrorAlert } from '@/components/clerk-errors'
 import { InputError } from '@/components/errors'
-import type { SignInResource } from '@clerk/nextjs/types'
 import { Button, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
 import { RequestMFA } from '../signin/mfa'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import { usePendingReset } from './use-pending-reset'
 
-interface PendingResetProps {
-    pendingReset: SignInResource
-    onResetUpdate?: (updated: SignInResource) => void
-}
-
-export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps) {
+export function PendingReset({ identifier }: { identifier: string | null }) {
     const {
         needsMFA,
         verificationForm,
@@ -25,7 +19,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
         onSubmitVerification,
         resendCode,
         markPasswordTouched,
-    } = usePendingReset(pendingReset, onResetUpdate)
+    } = usePendingReset(identifier)
 
     if (needsMFA) return <RequestMFA mfa={needsMFA} />
 
