@@ -1,6 +1,5 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { useSignIn } from '@clerk/nextjs/legacy'
 import { db } from '@/database'
 import {
     actionResult,
@@ -38,7 +37,6 @@ vi.mock('@/server/storage', async (importOriginal) => ({
 const TERMS_BODY = 'The published terms.'
 
 beforeEach(async () => {
-    ;(useSignIn as Mock).mockReturnValue({ isLoaded: true, signIn: null, setActive: null })
     await resetLegalDocuments()
 })
 
