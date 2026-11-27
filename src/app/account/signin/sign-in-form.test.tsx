@@ -1,4 +1,6 @@
 import {
+    advancesSignIn,
+    clerkApiError,
     db,
     findFieldErrorShownOnce,
     insertKeylessInvitedUser,
@@ -6,6 +8,7 @@ import {
     screen,
     fireEvent,
     mockSessionWithTestData,
+    mockSignIn,
     waitFor,
     userEvent,
     type Mock,
@@ -13,20 +16,24 @@ import {
 import { describe, it, expect, vi } from 'vitest'
 import { notifications } from '@mantine/notifications'
 import { useAuth } from '@clerk/nextjs'
-import { useSignIn } from '@clerk/nextjs/legacy'
 import { memoryRouter } from 'next-router-mock'
 import { clerkErrorOverrides } from '@/lib/errors'
 import { SignInForm } from './sign-in-form'
 
-const mockSignInCreate = (create: Mock) =>
-    (useSignIn as Mock).mockReturnValue({ isLoaded: true, signIn: { create }, setActive: vi.fn() })
+const SESSION_EXISTS = clerkApiError('session_exists', 'Session already exists', "You're already signed in.")
+
+const mockCompletedSignIn = () => {
+    const signIn = mockSignIn()
+    signIn.password = advancesSignIn(signIn, 'complete')
+    return signIn
+}
 
 // No-MFA counterpart: sign-in completes in one step, so the key detour applies here (OTTER-655).
 const keylessUserSigningIn = async () => {
     const { user } = await mockSessionWithTestData({ orgType: 'lab' })
     await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
     ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
-    mockSignInCreate(vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'session-id' }))
+    return mockCompletedSignIn()
 }
 
 // The already-signed-in exit is a full load, so the root layout re-renders with the session's orgs.
@@ -41,7 +48,6 @@ const submitCredentials = async () => {
 describe('SignInForm', () => {
     it('tells a user signed out after setting up MFA to sign in with it', async () => {
         memoryRouter.setCurrentUrl('/account/signin?mfa=verify')
-        mockSignInCreate(vi.fn())
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
 
@@ -50,12 +56,7 @@ describe('SignInForm', () => {
 
     it('redirects instead of erroring when Clerk reports an active session on submit', async () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
-        const create = vi.fn().mockRejectedValue({
-            errors: [
-                { code: 'session_exists', message: 'Session already exists', longMessage: "You're already signed in." },
-            ],
-        })
-        mockSignInCreate(create)
+        mockSignIn({ password: vi.fn().mockResolvedValue(SESSION_EXISTS) })
         const replace = spyOnHardNavigation()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
@@ -68,12 +69,7 @@ describe('SignInForm', () => {
     // asserts arrived behind a red "Failed Signin Attempt" toast.
     it('does not report an error when it redirects an already-signed-in submit', async () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
-        const create = vi.fn().mockRejectedValue({
-            errors: [
-                { code: 'session_exists', message: 'Session already exists', longMessage: "You're already signed in." },
-            ],
-        })
-        mockSignInCreate(create)
+        mockSignIn({ password: vi.fn().mockResolvedValue(SESSION_EXISTS) })
         const replace = spyOnHardNavigation()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
@@ -86,12 +82,7 @@ describe('SignInForm', () => {
     // OTTER-671: with no redirect_url present, the post-signin landing is the dashboard.
     it('falls back to the dashboard when no redirect_url is present', async () => {
         memoryRouter.setCurrentUrl('/account/signin')
-        const create = vi.fn().mockRejectedValue({
-            errors: [
-                { code: 'session_exists', message: 'Session already exists', longMessage: "You're already signed in." },
-            ],
-        })
-        mockSignInCreate(create)
+        mockSignIn({ password: vi.fn().mockResolvedValue(SESSION_EXISTS) })
         const replace = spyOnHardNavigation()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
@@ -102,7 +93,7 @@ describe('SignInForm', () => {
 
     it('carries an explicit redirect_url through key generation for a keyless user', async () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax-lab%2Fdashboard')
-        await keylessUserSigningIn()
+        const signIn = await keylessUserSigningIn()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
         await submitCredentials()
@@ -112,6 +103,35 @@ describe('SignInForm', () => {
                 `/account/keys?redirect_url=${encodeURIComponent('/openstax-lab/dashboard')}`,
             ),
         )
+        expect(signIn.password).toHaveBeenCalledWith({ identifier: 'ada@example.com', password: 'whatever' })
+        expect(signIn.finalize).toHaveBeenCalledOnce()
+    })
+
+    it('moves to the MFA step when the password is right and a second factor is pending', async () => {
+        memoryRouter.setCurrentUrl('/account/signin')
+        const signIn = mockSignIn()
+        signIn.password = advancesSignIn(signIn, 'needs_second_factor')
+        const onComplete = vi.fn()
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={onComplete} />)
+        await submitCredentials()
+
+        await waitFor(() => expect(onComplete).toHaveBeenCalledWith(true))
+        expect(signIn.finalize).not.toHaveBeenCalled()
+    })
+
+    it('shows the locked-account error Clerk returns', async () => {
+        memoryRouter.setCurrentUrl('/account/signin')
+        mockSignIn({
+            password: vi
+                .fn()
+                .mockResolvedValue(clerkApiError('user_locked', 'Locked', 'Your account is locked. Try again later.')),
+        })
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+        await submitCredentials()
+
+        expect(await screen.findByText('Account Locked')).toBeInTheDocument()
     })
 
     // Emitting the fallback as a parameter would pin the key page to "My studies".
@@ -127,10 +147,9 @@ describe('SignInForm', () => {
 
     it('shows a field error for incorrect credentials', async () => {
         memoryRouter.setCurrentUrl('/account/signin')
-        const create = vi.fn().mockRejectedValue({
-            errors: [{ code: 'form_password_incorrect', message: 'Password is incorrect.' }],
+        mockSignIn({
+            password: vi.fn().mockResolvedValue(clerkApiError('form_password_incorrect', 'Password is incorrect.')),
         })
-        mockSignInCreate(create)
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
         await submitCredentials()
@@ -147,7 +166,6 @@ describe('SignInForm', () => {
     // A blank email fails both `min(1)` and `email()`; the resolver keeps the last by default,
     // so an untouched field read "Invalid email" (OTTER-647).
     it('says the email is required when it is left blank, not that it is invalid', async () => {
-        mockSignInCreate(vi.fn())
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
 
         await userEvent.click(screen.getByLabelText('Email'))
@@ -158,7 +176,6 @@ describe('SignInForm', () => {
     })
 
     it('still says the email is invalid when it is malformed', async () => {
-        mockSignInCreate(vi.fn())
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
 
         await userEvent.type(screen.getByLabelText('Email'), 'not-an-email')
@@ -169,7 +186,6 @@ describe('SignInForm', () => {
 
     // Mantine renders PasswordInput's inner <input> with ARIA wiring disabled (OTTER-647).
     it('marks the password input invalid when it is left blank', async () => {
-        mockSignInCreate(vi.fn())
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
 
         const password = screen.getByLabelText('Password')
@@ -186,7 +202,7 @@ describe('SignInForm', () => {
         const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
         memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
         ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
-        mockSignInCreate(vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'session-id' }))
+        mockCompletedSignIn()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
         await submitCredentials()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useSignIn } from '@clerk/nextjs/legacy'
+import { useAuth } from '@clerk/nextjs'
 import { Container, Loader } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -14,7 +14,7 @@ import { useAlreadySignedIn } from './use-already-signed-in'
 type SignInStep = 'form' | 'mfa'
 
 export default function SigninPage() {
-    const { isLoaded } = useSignIn()
+    const { isLoaded } = useAuth()
     const searchParams = useSearchParams()
     const router = useRouter()
     const alreadySignedIn = useAlreadySignedIn()
@@ -38,14 +38,8 @@ export default function SigninPage() {
     }
 
     const setPending = async (pending: MFAState) => {
-        if (pending === false) {
-            setMFAState(false)
-            setStep('form')
-            return
-        }
-
         setMFAState(pending)
-        setStep('mfa')
+        setStep(pending ? 'mfa' : 'form')
     }
 
     const showForm = alreadySignedIn.status === 'signed-out' && step === 'form'
