@@ -4,6 +4,7 @@ import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/request-context'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { installFakeClerkOrgs } from './unit/clerk-orgs'
+import { mockSignIn } from './unit/clerk'
 import { cleanup, configure } from '@testing-library/react'
 
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
@@ -153,7 +154,6 @@ vi.mock('next/headers', async () => ({ headers: async () => mockState.headers })
 
 // Configured via mockClerkSession() in tests/unit/clerk.ts
 vi.mock('@clerk/nextjs')
-vi.mock('@clerk/nextjs/legacy')
 vi.mock('@clerk/nextjs/server')
 
 // A session read an action started but the test never awaited (a reconnect status check, say).
@@ -362,6 +362,7 @@ beforeEach(async () => {
     ;(ClerkProvider as Mock).mockImplementation(({ children }: { children: React.ReactNode }) => {
         return children
     })
+    mockSignIn()
 })
 
 // Runs even when the teardown check or the rollback throws, so the next test cannot inherit a

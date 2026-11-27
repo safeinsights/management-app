@@ -1,57 +1,55 @@
-import { type SignInResource } from '@clerk/nextjs/types'
-import { isUsingPhoneMFA, signInToMFAState } from './logic'
-import { describe, it, expect, vi } from 'vitest'
+import type { SignInFutureResource } from '@clerk/nextjs/types'
+import { describe, expect, it, vi } from 'vitest'
+import { isUsingPhoneMFA, sendPhoneCodeIfOnlyFactor, throwOnClerkError } from './logic'
+
+const signInWithFactors = (strategies: string[]) =>
+    ({
+        supportedSecondFactors: strategies.map((strategy) => ({ strategy })),
+        mfa: { sendPhoneCode: vi.fn().mockResolvedValue({ error: null }) },
+    }) as unknown as SignInFutureResource
 
 describe('MFA Utilities', () => {
     describe('isUsingPhoneMFA', () => {
         it('should return true when SMS is supported and TOTP is not', () => {
-            const mockSignIn = {
-                supportedSecondFactors: [{ strategy: 'phone_code' }],
-            } as SignInResource
-
-            expect(isUsingPhoneMFA(mockSignIn)).toBe(true)
+            expect(isUsingPhoneMFA(signInWithFactors(['phone_code']))).toBe(true)
         })
 
         it('should return false when both SMS and TOTP are supported', () => {
-            const mockSignIn = {
-                supportedSecondFactors: [{ strategy: 'phone_code' }, { strategy: 'totp' }],
-            } as SignInResource
-
-            expect(isUsingPhoneMFA(mockSignIn)).toBe(false)
+            expect(isUsingPhoneMFA(signInWithFactors(['phone_code', 'totp']))).toBe(false)
         })
 
         it('should return false when no second factors are supported', () => {
-            const mockSignIn = {
-                supportedSecondFactors: [],
-            } as unknown as SignInResource
-
-            expect(isUsingPhoneMFA(mockSignIn)).toBe(false)
+            expect(isUsingPhoneMFA(signInWithFactors([]))).toBe(false)
         })
     })
 
-    describe('signInToMFAState', () => {
-        it('should prepare SMS factor and return proper state when SMS MFA is used', async () => {
-            const mockSignIn = {
-                supportedSecondFactors: [{ strategy: 'phone_code' }],
-                prepareSecondFactor: vi.fn().mockResolvedValue(undefined),
-            } as unknown as SignInResource
+    describe('sendPhoneCodeIfOnlyFactor', () => {
+        it('sends an SMS code when phone is the only second factor', async () => {
+            const signIn = signInWithFactors(['phone_code'])
 
-            const result = await signInToMFAState(mockSignIn)
+            await sendPhoneCodeIfOnlyFactor(signIn)
 
-            expect(mockSignIn.prepareSecondFactor).toHaveBeenCalledWith({ strategy: 'phone_code' })
-            expect(result).toEqual({ signIn: mockSignIn, usingSMS: true })
+            expect(signIn.mfa.sendPhoneCode).toHaveBeenCalledOnce()
         })
 
-        it('should not prepare second factor when SMS MFA is not used', async () => {
-            const mockSignIn = {
-                supportedSecondFactors: [{ strategy: 'phone_code' }, { strategy: 'totp' }],
-                prepareSecondFactor: vi.fn().mockResolvedValue(undefined),
-            } as unknown as SignInResource
+        it('does not send an SMS code when an authenticator app is also set up', async () => {
+            const signIn = signInWithFactors(['phone_code', 'totp'])
 
-            const result = await signInToMFAState(mockSignIn)
+            await sendPhoneCodeIfOnlyFactor(signIn)
 
-            expect(mockSignIn.prepareSecondFactor).not.toHaveBeenCalled()
-            expect(result).toEqual({ signIn: mockSignIn, usingSMS: false })
+            expect(signIn.mfa.sendPhoneCode).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('throwOnClerkError', () => {
+        it('resolves when the call returns no error', async () => {
+            await expect(throwOnClerkError(Promise.resolve({ error: null }))).resolves.toBeUndefined()
+        })
+
+        it('rejects with the returned error object unchanged', async () => {
+            const error = { errors: [{ code: 'form_code_incorrect', message: 'Incorrect code' }] }
+
+            await expect(throwOnClerkError(Promise.resolve({ error }))).rejects.toBe(error)
         })
     })
 })

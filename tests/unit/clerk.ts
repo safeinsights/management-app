@@ -1,5 +1,5 @@
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
-import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
+import { useAuth, useClerk, useSession, useSignIn, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { useParams } from 'next/navigation'
 import { Mock, vi } from 'vitest'
@@ -204,3 +204,59 @@ export const createMockUserSession = (options: CreateMockUserSessionOptions) => 
         orgs: orgsRecord,
     }
 }
+
+const clerkResult = () => vi.fn().mockResolvedValue({ error: null })
+
+const createMockSignIn = () => ({
+    status: 'needs_identifier',
+    supportedSecondFactors: [] as Array<{ strategy: string; safeIdentifier?: string }>,
+    identifier: null as string | null,
+    createdSessionId: null as string | null,
+    firstFactorVerification: { status: null as string | null },
+    password: clerkResult(),
+    create: clerkResult(),
+    finalize: clerkResult(),
+    resetPasswordEmailCode: { sendCode: clerkResult(), verifyCode: clerkResult(), submitPassword: clerkResult() },
+    mfa: {
+        sendPhoneCode: clerkResult(),
+        verifyPhoneCode: clerkResult(),
+        verifyTOTP: clerkResult(),
+        verifyBackupCode: clerkResult(),
+    },
+})
+
+export type MockSignIn = ReturnType<typeof createMockSignIn>
+
+type MockSignInOverrides = Partial<Omit<MockSignIn, 'mfa' | 'resetPasswordEmailCode'>> & {
+    mfa?: Partial<MockSignIn['mfa']>
+    resetPasswordEmailCode?: Partial<MockSignIn['resetPasswordEmailCode']>
+}
+
+// Configures the signals useSignIn() and returns its signIn, which tests mutate (status) and assert on.
+export const mockSignIn = ({ mfa, resetPasswordEmailCode, ...overrides }: MockSignInOverrides = {}) => {
+    const defaults = createMockSignIn()
+    const signIn: MockSignIn = {
+        ...defaults,
+        ...overrides,
+        mfa: { ...defaults.mfa, ...mfa },
+        resetPasswordEmailCode: { ...defaults.resetPasswordEmailCode, ...resetPasswordEmailCode },
+    }
+    ;(useSignIn as Mock).mockReturnValue({
+        signIn,
+        errors: { fields: { identifier: null, password: null, code: null }, raw: null, global: null },
+        fetchStatus: 'idle',
+    })
+    return signIn
+}
+
+// A signals method that moves the mocked sign-in to `status`, as the real resource does in place.
+export const advancesSignIn = (signIn: MockSignIn, status: string, sessionId = 'session-id') =>
+    vi.fn(async () => {
+        signIn.status = status
+        if (status === 'complete') signIn.createdSessionId = sessionId
+        return { error: null }
+    })
+
+export const clerkApiError = (code: string, message = code, longMessage?: string) => ({
+    error: { errors: [{ code, message, longMessage }] },
+})
