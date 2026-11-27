@@ -1,9 +1,10 @@
-// Mirrors the @clerk/types SignInResource surface the custom sign-in form drives. Wrong inputs
-// throw Clerk-shaped errors so the form's catch paths run.
+// Mirrors the signals SignInFutureResource surface the custom auth flows drive. Like real Clerk,
+// one sign-in attempt is shared by every component, and wrong inputs come back as Clerk-shaped
+// `{ error }` values instead of throwing.
 
 import { fixtureForEmail, type FakeRole } from './fixtures'
 
-const MFA_CODE = '424242'
+export const MFA_CODE = '424242'
 
 class FakeClerkError extends Error {
     errors: Array<{ code: string; message: string; longMessage?: string }>
@@ -14,84 +15,110 @@ class FakeClerkError extends Error {
     }
 }
 
+type FakeResult = Promise<{ error: FakeClerkError | null }>
+
 export type FakeSignIn = {
-    status: 'needs_identifier' | 'needs_first_factor' | 'needs_second_factor' | 'complete'
+    status: 'needs_identifier' | 'needs_first_factor' | 'needs_second_factor' | 'needs_new_password' | 'complete'
     identifier: string | null
     createdSessionId: string | null
-    supportedSecondFactors: Array<{ strategy: string; safeIdentifier?: string }> | null
+    supportedSecondFactors: Array<{ strategy: string; safeIdentifier?: string }>
     firstFactorVerification: { status: string | null }
     role: FakeRole | null
-    create(params: { identifier: string; password?: string; strategy?: string }): Promise<FakeSignIn>
-    prepareSecondFactor(params: { strategy: string }): Promise<FakeSignIn>
-    attemptSecondFactor(params: { strategy: string; code: string }): Promise<FakeSignIn>
-    attemptFirstFactor(params: { strategy: string; code: string; password?: string }): Promise<FakeSignIn>
-    prepareFirstFactor(params: { strategy: string; [k: string]: unknown }): Promise<FakeSignIn>
-    reload(): Promise<FakeSignIn>
+    password(params: { identifier: string; password: string }): FakeResult
+    create(params: { identifier: string }): FakeResult
+    resetPasswordEmailCode: {
+        sendCode(): FakeResult
+        verifyCode(params: { code: string }): FakeResult
+        submitPassword(params: { password: string; signOutOfOtherSessions?: boolean }): FakeResult
+    }
+    mfa: {
+        sendPhoneCode(): FakeResult
+        verifyPhoneCode(params: { code: string }): FakeResult
+        verifyTOTP(params: { code: string }): FakeResult
+        verifyBackupCode(params: { code: string }): FakeResult
+    }
+    reset(): FakeResult
 }
 
-export function createFakeSignIn(): FakeSignIn {
-    const signIn: FakeSignIn = {
-        status: 'needs_identifier',
-        identifier: null,
-        createdSessionId: null,
-        supportedSecondFactors: null,
-        firstFactorVerification: { status: null },
-        role: null,
+const ok = async () => ({ error: null })
+const fail = async (code: string, message: string) => ({ error: new FakeClerkError(code, message) })
 
-        async create({ identifier, password, strategy }) {
-            signIn.identifier = identifier
-            const fixture = fixtureForEmail(identifier)
-            signIn.role = fixture?.role ?? null
+const startAttempt = (identifier: string) => {
+    fakeSignIn.identifier = identifier
+    fakeSignIn.role = fixtureForEmail(identifier)?.role ?? null
+    fakeSignIn.createdSessionId = null
+}
 
-            if (strategy === 'reset_password_email_code') {
-                if (!fixture) throw new FakeClerkError('form_identifier_not_found', "Couldn't find your account.")
-                signIn.status = 'needs_first_factor'
-                signIn.firstFactorVerification = { status: 'unverified' }
-                return signIn
-            }
+const complete = () => {
+    fakeSignIn.status = 'complete'
+    fakeSignIn.createdSessionId = `e2e-session-${fakeSignIn.role}`
+}
 
-            if (!password || password === 'wrong') {
-                throw new FakeClerkError('form_password_incorrect', 'Password is incorrect. Try again.')
-            }
+const verifySecondFactor = async ({ code }: { code: string }) => {
+    if (code !== MFA_CODE) return fail('form_code_incorrect', 'Invalid code. Try again.')
+    complete()
+    return ok()
+}
 
-            // A non-fixture email has no role, so attemptSecondFactor can't complete it,
-            // mirroring a new Clerk account with no enrolled factors.
-            signIn.status = 'needs_second_factor'
-            signIn.supportedSecondFactors = [{ strategy: 'phone_code', safeIdentifier: '+•• ••• ••42' }]
-            return signIn
+export const fakeSignIn: FakeSignIn = {
+    status: 'needs_identifier',
+    identifier: null,
+    createdSessionId: null,
+    supportedSecondFactors: [],
+    firstFactorVerification: { status: null },
+    role: null,
+
+    async password({ identifier, password }) {
+        startAttempt(identifier)
+        if (!password || password === 'wrong') {
+            return fail('form_password_incorrect', 'Password is incorrect. Try again.')
+        }
+
+        // A non-fixture email has no role, so no second factor completes it, mirroring a new
+        // Clerk account with no enrolled factors.
+        fakeSignIn.status = 'needs_second_factor'
+        fakeSignIn.supportedSecondFactors = [{ strategy: 'phone_code', safeIdentifier: '+•• ••• ••42' }]
+        return ok()
+    },
+
+    async create({ identifier }) {
+        startAttempt(identifier)
+        if (!fakeSignIn.role) return fail('form_identifier_not_found', "Couldn't find your account.")
+        fakeSignIn.status = 'needs_first_factor'
+        return ok()
+    },
+
+    resetPasswordEmailCode: {
+        async sendCode() {
+            fakeSignIn.firstFactorVerification = { status: 'unverified' }
+            return ok()
         },
-
-        async prepareFirstFactor() {
-            signIn.firstFactorVerification = { status: 'unverified' }
-            return signIn
+        async verifyCode({ code }) {
+            if (code !== MFA_CODE) return fail('form_code_incorrect', 'Invalid code. Try again.')
+            fakeSignIn.status = 'needs_new_password'
+            fakeSignIn.firstFactorVerification = { status: 'verified' }
+            return ok()
         },
-
-        async attemptFirstFactor({ code }) {
-            if (code !== MFA_CODE) {
-                throw new FakeClerkError('form_code_incorrect', 'Invalid code. Try again.')
-            }
-            signIn.status = 'complete'
-            signIn.createdSessionId = `e2e-session-${signIn.role}`
-            signIn.firstFactorVerification = { status: 'verified' }
-            return signIn
+        async submitPassword() {
+            complete()
+            return ok()
         },
+    },
 
-        async prepareSecondFactor() {
-            return signIn
-        },
+    mfa: {
+        sendPhoneCode: ok,
+        verifyPhoneCode: verifySecondFactor,
+        verifyTOTP: verifySecondFactor,
+        verifyBackupCode: verifySecondFactor,
+    },
 
-        async attemptSecondFactor({ code }) {
-            if (code !== MFA_CODE) {
-                throw new FakeClerkError('form_code_incorrect', 'Invalid code. Try again.')
-            }
-            signIn.status = 'complete'
-            signIn.createdSessionId = `e2e-session-${signIn.role}`
-            return signIn
-        },
-
-        async reload() {
-            return signIn
-        },
-    }
-    return signIn
+    async reset() {
+        fakeSignIn.status = 'needs_identifier'
+        fakeSignIn.identifier = null
+        fakeSignIn.createdSessionId = null
+        fakeSignIn.supportedSecondFactors = []
+        fakeSignIn.firstFactorVerification = { status: null }
+        fakeSignIn.role = null
+        return ok()
+    },
 }

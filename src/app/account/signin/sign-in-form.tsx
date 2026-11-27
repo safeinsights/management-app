@@ -4,11 +4,11 @@ import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
-import { useSignIn } from '@clerk/nextjs/legacy'
+import { useSignIn } from '@clerk/nextjs'
 import { useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
-import { type MFAState } from './logic'
+import { throwOnClerkError, type MFAState } from './logic'
 import { SignInFormView } from './sign-in-form-view'
 import { useCompleteSignIn } from './use-complete-sign-in'
 
@@ -20,14 +20,14 @@ const signInSchema = z.object({
 
 type SignInFormData = z.infer<typeof signInSchema>
 
-// Clerk's session_exists longMessage, thrown by signIn.create when a session is live.
+// Clerk's session_exists longMessage, returned by signIn.password when a session is live.
 const ALREADY_SIGNED_IN_MESSAGE = "You're already signed in."
 
 export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
-    const { setActive, signIn } = useSignIn()
+    const { signIn } = useSignIn()
     const completeSignIn = useCompleteSignIn()
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
@@ -58,7 +58,7 @@ export const SignInForm: FC<{
         validate: zodResolver(signInSchema, { errorPriority: 'first' }),
     })
 
-    if (!signIn || mfa) return null
+    if (mfa) return null
 
     // Default landing is the dashboard (OTTER-671).
     const rawRedirect = searchParams.get('redirect_url')
@@ -71,17 +71,14 @@ export const SignInForm: FC<{
 
     const onSubmit = form.onSubmit(async (values) => {
         try {
-            const attempt = await signIn.create({
-                identifier: values.email,
-                password: values.password,
-            })
-            if (attempt.status === 'complete') {
-                await setActive({ session: attempt.createdSessionId })
+            await throwOnClerkError(signIn.password({ identifier: values.email, password: values.password }))
+            if (signIn.status === 'complete') {
+                await throwOnClerkError(signIn.finalize())
                 await onComplete(false)
                 await completeSignIn()
             }
-            if (attempt.status === 'needs_second_factor') {
-                await onComplete({ signIn: attempt, usingSMS: false })
+            if (signIn.status === 'needs_second_factor') {
+                await onComplete(true)
             }
         } catch (err: unknown) {
             const errorMessage = errorToString(err, { clerkOverrides: clerkErrorOverrides })

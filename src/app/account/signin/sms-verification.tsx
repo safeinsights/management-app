@@ -1,27 +1,25 @@
 import { semanticColor } from '@/theme/tokens'
 import { InputError } from '@/components/errors'
 import OtpInput from '@/components/otp-input'
-import { SignInResource } from '@clerk/nextjs/types'
 import { Anchor, Box, Button, Group, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { showToast } from '@/components/toast-notifications'
 import { useState } from 'react'
 
 interface SmsVerificationProps {
-    signIn: SignInResource | null
+    onResendCode: () => Promise<void>
     phoneNumber?: string
     form: UseFormReturnType<{ code: string }>
     isVerifyingCode: boolean
 }
 
-export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: SmsVerificationProps) => {
+export const SmsVerification = ({ onResendCode, phoneNumber, form, isVerifyingCode }: SmsVerificationProps) => {
     const [canResendCode, setCanResendCode] = useState(true)
 
     const resendCode = async () => {
-        if (!signIn) return
         try {
             if (canResendCode) {
-                await signIn.prepareSecondFactor({ strategy: 'phone_code' })
+                await onResendCode()
                 showToast({ category: 'success', title: 'A new code has been sent!' })
                 setCanResendCode(false)
                 setTimeout(() => setCanResendCode(true), 30000)

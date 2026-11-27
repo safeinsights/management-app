@@ -1,8 +1,7 @@
 'use client'
 
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
-import { useSignIn } from '@clerk/nextjs/legacy'
-import type { SignInResource } from '@clerk/nextjs/types'
+import { useAuth } from '@clerk/nextjs'
 import { Loader } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
@@ -11,8 +10,8 @@ import { ResetForm } from './reset-form'
 import { Routes } from '@/lib/routes'
 
 export function ResetPassword() {
-    const { isLoaded } = useSignIn()
-    const [pendingReset, setPendingReset] = useState<SignInResource | null>(null)
+    const { isLoaded } = useAuth()
+    const [pendingReset, setPendingReset] = useState<{ identifier: string | null } | null>(null)
     const [showVerification, setShowVerification] = useState(false)
     const router = useRouter()
 
@@ -20,8 +19,8 @@ export function ResetPassword() {
         return <Loader />
     }
 
-    const onComplete = (info: SignInResource) => {
-        setPendingReset(info)
+    const onComplete = (identifier: string | null) => {
+        setPendingReset({ identifier })
         setShowVerification(true)
     }
 
@@ -40,7 +39,7 @@ export function ResetPassword() {
     }
 
     if (pendingReset) {
-        return <PendingReset pendingReset={pendingReset} onResetUpdate={setPendingReset} />
+        return <PendingReset identifier={pendingReset.identifier} />
     }
 
     return <ResetForm onCompleteAction={onComplete} />

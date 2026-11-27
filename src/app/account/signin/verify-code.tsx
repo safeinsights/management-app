@@ -1,4 +1,3 @@
-import { SignInResource } from '@clerk/nextjs/types'
 import { Box, Stack, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { SmsVerification } from './sms-verification'
@@ -6,7 +5,7 @@ import { TotpVerification } from './totp-verification'
 
 interface VerifyCodeProps {
     isVisible: boolean
-    signIn: SignInResource | null
+    onResendCode: () => Promise<void>
     phoneNumber?: string // masked phone number
     form: UseFormReturnType<{ code: string }>
     isVerifyingCode: boolean
@@ -17,7 +16,7 @@ interface VerifyCodeProps {
 
 export const VerifyCode = ({
     isVisible,
-    signIn,
+    onResendCode,
     phoneNumber,
     form,
     isVerifyingCode,
@@ -35,7 +34,7 @@ export const VerifyCode = ({
                 </Title>
                 {method === 'sms' ? (
                     <SmsVerification
-                        signIn={signIn}
+                        onResendCode={onResendCode}
                         phoneNumber={phoneNumber}
                         form={form}
                         isVerifyingCode={isVerifyingCode}

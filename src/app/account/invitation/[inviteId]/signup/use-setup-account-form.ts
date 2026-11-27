@@ -4,7 +4,7 @@ import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/re
 import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, reportError } from '@/components/errors'
-import { useSignIn } from '@clerk/nextjs/legacy'
+import { useSignIn } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
@@ -13,6 +13,7 @@ import { fetchParticipationAgreementFromInviteIdAction } from '@/server/actions/
 import { onCreateAccountAction, onPendingUserLoginAction } from '@/server/actions/create-account.actions'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
+import { throwOnClerkError } from '@/app/account/signin/logic'
 
 const baseSchema = z.object({
     firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
@@ -63,7 +64,7 @@ export type InviteData = {
 }
 
 export function useSetupAccountForm({ inviteId, email, orgName }: InviteData) {
-    const { setActive, signIn } = useSignIn()
+    const { signIn } = useSignIn()
     const router = useRouter()
 
     // Public: the invitee agrees to these versions before an account exists.
@@ -127,23 +128,15 @@ export function useSetupAccountForm({ inviteId, email, orgName }: InviteData) {
             }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
-            if (!signIn || !setActive) {
-                reportError('unable to signin')
-                return
-            }
-
             try {
-                const attempt = await signIn.create({
-                    identifier: email,
-                    password: vals.password,
-                })
+                await throwOnClerkError(signIn.password({ identifier: email, password: vals.password }))
 
-                if (attempt.status === 'complete') {
-                    await setActive({ session: attempt.createdSessionId })
+                if (signIn.status === 'complete') {
+                    await throwOnClerkError(signIn.finalize())
                     await onPendingUserLoginAction({ inviteId })
                     markOrgJoined(orgName)
                     router.push(Routes.accountMfa)
-                } else if (attempt.status === 'needs_second_factor') {
+                } else if (signIn.status === 'needs_second_factor') {
                     // A fresh account has no MFA factors, so a second-factor challenge is
                     // unsatisfiable; Clerk's instance policy must let first sign-in complete.
                     reportError(
@@ -152,11 +145,11 @@ export function useSetupAccountForm({ inviteId, email, orgName }: InviteData) {
                 } else {
                     console.error(
                         'Sign-in status:',
-                        attempt.status,
+                        signIn.status,
                         'First factor:',
-                        attempt.firstFactorVerification?.status,
+                        signIn.firstFactorVerification?.status,
                     )
-                    reportError(`unable to sign in: ${attempt.status}`)
+                    reportError(`unable to sign in: ${signIn.status}`)
                 }
             } catch (error) {
                 console.error('Sign-in error:', error)
