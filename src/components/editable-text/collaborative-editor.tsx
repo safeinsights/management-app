@@ -216,6 +216,14 @@ const TERMINAL_AUTH_CODES = new Set<AuthFailureCode>([
 // Gives the editor service time to self-heal its DB pool before we retry.
 const INFRA_RETRY_DELAY_MS = 5000
 
+// On a shared socket connect() is a no-op, and detach() leaves a CLOSE the server replays once
+// auth succeeds, dropping the new connection. Resending the handshake is what onOpen does.
+export async function resendHandshake(provider: HocuspocusProvider | null) {
+    if (!provider || provider.isAuthenticated) return
+    await provider.sendToken()
+    provider.startSync()
+}
+
 export function CollaborativeEditor({
     id,
     websocketProvider,
@@ -266,7 +274,7 @@ export function CollaborativeEditor({
                 if (infraRetryTimer.current) clearTimeout(infraRetryTimer.current)
                 infraRetryTimer.current = setTimeout(() => {
                     setAuthFailureCode(null)
-                    providerRef.current?.connect()
+                    void resendHandshake(providerRef.current)
                 }, INFRA_RETRY_DELAY_MS)
             }
         },
