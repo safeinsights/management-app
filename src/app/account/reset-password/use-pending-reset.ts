@@ -63,7 +63,10 @@ export function usePendingReset(identifier: string | null) {
             }
             // Clerk defaults this to true; the legacy reset left other sessions signed in.
             await throwOnClerkError(
-                signIn.resetPasswordEmailCode.submitPassword({ password: form.password, signOutOfOtherSessions: false }),
+                signIn.resetPasswordEmailCode.submitPassword({
+                    password: form.password,
+                    signOutOfOtherSessions: false,
+                }),
             )
             return signIn.status
         },

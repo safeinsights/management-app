@@ -97,7 +97,9 @@ describe('RecoveryCodeSignIn', () => {
     it('shows the incorrect-code message one time when Clerk rejects the code', async () => {
         const signIn = mockSignIn({
             status: 'needs_second_factor',
-            mfa: { verifyBackupCode: vi.fn().mockResolvedValue(clerkApiError('form_code_incorrect', 'Incorrect code')) },
+            mfa: {
+                verifyBackupCode: vi.fn().mockResolvedValue(clerkApiError('form_code_incorrect', 'Incorrect code')),
+            },
         })
         renderWithProviders(<RecoveryCodeSignIn setStep={vi.fn()} />)
 

@@ -37,7 +37,9 @@ export function useRequestMfa(mfa: MFAState) {
         async mutationFn(form: { code: string }) {
             if (!mfa) return
             const { code } = form
-            await throwOnClerkError(method === 'sms' ? signIn.mfa.verifyPhoneCode({ code }) : signIn.mfa.verifyTOTP({ code }))
+            await throwOnClerkError(
+                method === 'sms' ? signIn.mfa.verifyPhoneCode({ code }) : signIn.mfa.verifyTOTP({ code }),
+            )
             return signIn.status
         },
         onError(error: unknown) {
