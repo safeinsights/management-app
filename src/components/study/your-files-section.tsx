@@ -94,9 +94,11 @@ const SectionDescription: FC<{ text?: string }> = ({ text }) => {
     )
 }
 
-const SectionHeading: FC<{ description?: string }> = ({ description }) => (
-    <Stack gap="xxs">
-        <Title order={3} fz="lg" c={semanticColor('text.primary')}>
+type SectionHeadingProps = { description?: string; fz: 'md' | 'lg'; mih?: number }
+
+const SectionHeading: FC<SectionHeadingProps> = ({ description, fz, mih }) => (
+    <Stack gap="xxs" mih={mih} justify="center">
+        <Title order={3} fz={fz} c={semanticColor('text.primary')}>
             {SECTION_TITLE}
         </Title>
         <SectionDescription text={description} />
@@ -118,7 +120,7 @@ const SectionLayout: FC<SectionLayoutProps> = ({ isNested, description, launchCo
     if (isNested) {
         return (
             <Stack gap="lg" data-testid="your-files-section">
-                <SectionHeading description={description} />
+                <SectionHeading description={description} fz="md" />
                 {body}
             </Stack>
         )
@@ -127,7 +129,8 @@ const SectionLayout: FC<SectionLayoutProps> = ({ isNested, description, launchCo
     return (
         <Paper p="xxl" data-testid="your-files-section">
             <Group justify="space-between" wrap="nowrap" align="flex-start">
-                <SectionHeading description={description} />
+                {/* Launch IDE's height, so the title centres on the button and not on the lock helper under it. */}
+                <SectionHeading description={description} fz="lg" mih={36} />
                 {launchControl}
             </Group>
             <Divider my="lg" data-testid="your-files-divider" />

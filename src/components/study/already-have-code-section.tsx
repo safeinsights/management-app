@@ -3,7 +3,7 @@
 import type { FC, RefObject } from 'react'
 import { Anchor, Stack, Text, Title } from '@mantine/core'
 import { ACCEPTED_FILE_FORMATS_TEXT, MAX_UPLOAD_FILE_HINT } from '@/lib/types'
-import { semanticColor } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const SECTION_TITLE = 'Already have code?'
 
@@ -32,13 +32,15 @@ export const AlreadyHaveCodeSection: FC<AlreadyHaveCodeSectionProps> = ({ isVisi
             </Title>
             <Text size="sm" c={semanticColor('text.primary')}>
                 Download the template file from the table above. Add your code, then edit and test it in the
-                SafeInsights IDE against example data.{' '}
+                SafeInsights IDE against example data.
+                <br />
                 <Anchor
                     component="button"
                     type="button"
                     size="sm"
                     c={semanticColor('link.default')}
                     underline="always"
+                    fw={fontWeight.semibold}
                     onClick={() => openRef.current?.()}
                 >
                     {UPLOAD_LINK_TEXT}

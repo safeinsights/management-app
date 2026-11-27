@@ -1,4 +1,5 @@
 import { describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
+import { resubmitCodeModalCopy, submitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { SubmitConfirmationModal } from './submit-confirmation-modal'
 
 const props = {
@@ -79,5 +80,15 @@ describe('SubmitConfirmationModal', () => {
         expect(confirmButton('Submit proposal')).toBeDisabled()
         expect(confirmButton('Submit proposal')).not.toHaveAttribute('data-loading')
         expect(document.querySelector('[class*="mantine-Loader"]')).toBeInTheDocument()
+    })
+
+    // OTTER-955: the code step names the pending action, like the proposal modals already do.
+    it.each([
+        ['Submit code', submitCodeModalCopy, 'Submitting'],
+        ['Edit code', resubmitCodeModalCopy, 'Resubmitting'],
+    ])('labels the pending %s confirmation', (_page, copy, pendingLabel) => {
+        renderWithProviders(<SubmitConfirmationModal {...props} {...copy('Rice University')} isSubmitting />)
+
+        expect(confirmButton(pendingLabel)).toBeDisabled()
     })
 })

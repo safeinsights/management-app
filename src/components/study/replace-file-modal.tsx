@@ -19,11 +19,11 @@ type ReplaceFileModalProps = {
  * so Replace carries the red treatment and Cancel sits apart from the two actions.
  */
 export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve }) => (
-    <AppModal isOpen={file !== null} onClose={() => onResolve('cancel')} title={MODAL_TITLE}>
+    <AppModal isOpen={file !== null} onClose={() => onResolve('cancel')} title={MODAL_TITLE} size={440}>
         <Stack gap="xl">
-            <Text size="md">
+            <Text size="sm">
                 A file named{' '}
-                <Text span inherit fw={fontWeight.bold}>
+                <Text span inherit fw={fontWeight.semibold}>
                     {file?.name}
                 </Text>{' '}
                 already exists in SafeInsights. Replacing this file will overwrite and permanently delete the current

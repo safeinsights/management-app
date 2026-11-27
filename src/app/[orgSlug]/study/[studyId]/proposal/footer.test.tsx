@@ -97,11 +97,10 @@ describe('DraftProposalFooter submit button (OTTER-691)', () => {
 
         const dialog = await screen.findByRole('dialog')
         expect(within(dialog).getByText('Submit your proposal?')).toBeInTheDocument()
-        expect(
-            within(dialog).getByText(
-                'Your proposal will be sent to Test Data Partner for review. You will not be able to make changes once submitted.',
-            ),
-        ).toBeInTheDocument()
+        expect(dialog).toHaveTextContent(
+            'Your proposal will be sent to Test Data Partner for review. You will not be able to make changes once submitted.',
+        )
+        expect(within(dialog).getByText('Test Data Partner').style.fontWeight).toBe('var(--si-font-weight-semibold)')
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
     })
 

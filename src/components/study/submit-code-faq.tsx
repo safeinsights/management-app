@@ -153,7 +153,11 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
     const entries = faqEntries(dataPartnerName)
     // caretRight collapsed, caretUp expanded, per the card. Mantine's own rotation turns a chevron
     // through 180°, which would point the collapsed caret left, hence swapping the icon instead.
-    const chevron = openValue ? <CaretUpIcon size={QUESTION_ICON_SIZE} /> : <CaretRightIcon size={QUESTION_ICON_SIZE} />
+    const chevron = openValue ? (
+        <CaretUpIcon size={QUESTION_ICON_SIZE} color={semanticColor('info.text')} />
+    ) : (
+        <CaretRightIcon size={QUESTION_ICON_SIZE} color={semanticColor('info.text')} />
+    )
 
     return (
         <Accordion
@@ -177,6 +181,8 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
                         <VideoDurationBadge minutes={videoDurationMinutes} />
                     </Group>
                 </Accordion.Control>
+                {/* Figma separates the open header from the body; collapsed, the item border already closes it. */}
+                <Divider display={openValue ? undefined : 'none'} />
                 <Accordion.Panel bg={semanticColor('brand.accentalpha')}>
                     <Stack gap="md">
                         <OnboardingVideo isVisible={openValue !== null} />

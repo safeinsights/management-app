@@ -21,6 +21,7 @@ import {
     waitFor,
     waitForPendingMutations,
     within,
+    nodeText,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { type FC, type ReactElement, useState } from 'react'
@@ -282,7 +283,7 @@ describe('OutputsFeedbackScreen', () => {
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', copy.variant)
             expect(alert).toHaveTextContent(`${copy.title} • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`)
-            expect(alert).toHaveTextContent(copy.body as string)
+            expect(alert).toHaveTextContent(nodeText(copy.body))
         })
 
         it('dates the banner from the FILES-REJECTED decision, not code approval or today', async () => {
@@ -347,7 +348,7 @@ describe('OutputsFeedbackScreen', () => {
 
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveTextContent(copyFor(false, DATA_PARTNER).title)
-            expect(alert).toHaveTextContent(copyFor(false, DATA_PARTNER).body as string)
+            expect(alert).toHaveTextContent(nodeText(copyFor(false, DATA_PARTNER).body))
             expect(alert).not.toHaveTextContent(copyFor(true).title)
         })
     })
@@ -361,7 +362,7 @@ describe('OutputsFeedbackScreen', () => {
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', copy.variant)
             expect(alert).toHaveTextContent(`${copy.title} • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`)
-            expect(alert).toHaveTextContent(copy.body as string)
+            expect(alert).toHaveTextContent(nodeText(copy.body))
             expect(alert).not.toHaveTextContent(org.name)
             expect(document.body).not.toHaveTextContent(copyFor(false).title)
         })

@@ -157,11 +157,9 @@ describe('EditResubmitFooter — confirmation modal (OTTER-762)', () => {
 
         const dialog = await screen.findByRole('dialog')
         expect(within(dialog).getByText('Resubmit your proposal?')).toBeInTheDocument()
-        expect(
-            within(dialog).getByText(
-                `Your proposal will be sent to ${ORG_NAME} for review. You will not be able to make changes once submitted.`,
-            ),
-        ).toBeInTheDocument()
+        expect(dialog).toHaveTextContent(
+            `Your proposal will be sent to ${ORG_NAME} for review. You will not be able to make changes once submitted.`,
+        )
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Resubmit proposal' })).toBeInTheDocument()
         expect(within(dialog).queryByText(/initial request/i)).not.toBeInTheDocument()

@@ -1,4 +1,4 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, nodeText, renderWithProviders, screen } from '@/tests/unit.helpers'
 import {
     type BannerCopy,
     researcherCodeDecisionBanner,
@@ -17,6 +17,8 @@ import {
 
 const DATA_PARTNER = 'Test Data Partner'
 
+const withBodyText = (copy: BannerCopy) => ({ ...copy, body: nodeText(copy.body) })
+
 describe('researcherProposalBanner', () => {
     it.each([
         ['CHANGE-REQUESTED', 'action', 'Revision requested'],
@@ -25,7 +27,7 @@ describe('researcherProposalBanner', () => {
     ] as const)('maps %s to the %s banner', (status, variant, title) => {
         const copy = researcherProposalBanner(status, { dataPartner: DATA_PARTNER })
         expect(copy).toMatchObject({ variant, title })
-        expect(copy?.body).toContain(DATA_PARTNER)
+        expect(nodeText(copy?.body)).toContain(DATA_PARTNER)
     })
 
     it('names the data partner in the first-submission title', () => {
@@ -51,8 +53,13 @@ describe('researcherCodeSubmittedBanner', () => {
     it('names the data partner in the title and body on a first submission', () => {
         const copy = researcherCodeSubmittedBanner({ dataPartner: DATA_PARTNER })
         expect(copy).toMatchObject({ variant: 'informative', title: `Code submitted to ${DATA_PARTNER}` })
-        expect(copy.body).toContain(`shared with ${DATA_PARTNER}`)
-        expect(copy.body).toContain('An email notification will be sent')
+        expect(nodeText(copy.body)).toContain(`shared with ${DATA_PARTNER}`)
+        expect(nodeText(copy.body)).toContain('An email notification will be sent')
+    })
+
+    it('sets the data partner in semibold in the body', () => {
+        renderWithProviders(<p>{researcherCodeSubmittedBanner({ dataPartner: DATA_PARTNER }).body}</p>)
+        expect(screen.getByText(DATA_PARTNER).style.fontWeight).toBe('var(--si-font-weight-semibold)')
     })
 
     it('versions the title from the second submission onwards', () => {
@@ -70,19 +77,19 @@ describe('researcherCodeDecisionBanner', () => {
     ] as const)('maps %s to the %s banner', (status, variant, title) => {
         const copy = researcherCodeDecisionBanner(status, { dataPartner: DATA_PARTNER })
         expect(copy).toMatchObject({ variant, title })
-        expect(copy.body).toContain(DATA_PARTNER)
+        expect(nodeText(copy.body)).toContain(DATA_PARTNER)
     })
 
     it('tells the lab the approved code will run in the enclave', () => {
-        expect(researcherCodeDecisionBanner('CODE-APPROVED', { dataPartner: DATA_PARTNER }).body).toBe(
+        expect(nodeText(researcherCodeDecisionBanner('CODE-APPROVED', { dataPartner: DATA_PARTNER }).body)).toBe(
             `${DATA_PARTNER} has reviewed and approved your code to run in their secure enclave. An email notification will be sent when outputs become available.`,
         )
     })
 
     it('keeps the terminal details on a declined decision', () => {
         const { body } = researcherCodeDecisionBanner('CODE-REJECTED', { dataPartner: DATA_PARTNER })
-        expect(body).toContain('No further code submissions will be accepted for this study')
-        expect(body).toContain('contact SafeInsights')
+        expect(nodeText(body)).toContain('No further code submissions will be accepted for this study')
+        expect(nodeText(body)).toContain('contact SafeInsights')
     })
 })
 
@@ -90,7 +97,7 @@ describe('researcherSharedOutputsBanner', () => {
     it('gates a clean share behind the key, then concludes it', () => {
         const { locked, unlocked } = researcherSharedOutputsBanner('outputs-shared', { dataPartner: DATA_PARTNER })
 
-        expect(locked).toEqual({
+        expect(withBodyText(locked)).toEqual({
             variant: 'action',
             title: 'Decrypt to view your outputs and feedback',
             body: `${DATA_PARTNER} has reviewed and shared the outputs for the latest code run. Enter your security key to view them.`,
@@ -107,7 +114,7 @@ describe('researcherSharedOutputsBanner', () => {
             dataPartner: DATA_PARTNER,
         })
 
-        expect(locked).toEqual({
+        expect(withBodyText(locked)).toEqual({
             variant: 'action',
             title: 'Code run errored. Decrypt to view your outputs and feedback',
             body: `${DATA_PARTNER} has shared the outputs and feedback for the latest code run. Enter your security key to view them and diagnose the issue.`,
@@ -122,7 +129,7 @@ describe('researcherSharedOutputsBanner', () => {
 
 describe('researcherOutputsAwaitingReviewBanner', () => {
     it('names the data partner in both the title and the body, and stays informative', () => {
-        expect(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER })).toEqual({
+        expect(withBodyText(researcherOutputsAwaitingReviewBanner({ dataPartner: DATA_PARTNER }))).toEqual({
             variant: 'informative',
             title: `Code run complete, outputs under review by ${DATA_PARTNER}`,
             body: `Outputs have now been made available to ${DATA_PARTNER} for their review. An email notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
@@ -157,7 +164,9 @@ describe('researcherOutputsPendingBanner', () => {
 
 describe('researcherOutputsFeedbackBanner', () => {
     it('names the failed run when the outputs were withheld after an error', () => {
-        expect(researcherOutputsFeedbackBanner({ runErrored: true }, { dataPartner: DATA_PARTNER })).toEqual({
+        expect(
+            withBodyText(researcherOutputsFeedbackBanner({ runErrored: true }, { dataPartner: DATA_PARTNER })),
+        ).toEqual({
             variant: 'action',
             title: 'Resolve the code error to proceed',
             body: `${DATA_PARTNER} has shared feedback on why the latest code run failed. No output files were shared. Review the feedback below, then update your code and resubmit.`,
@@ -165,7 +174,9 @@ describe('researcherOutputsFeedbackBanner', () => {
     })
 
     it('reads as plain feedback when the run itself completed', () => {
-        expect(researcherOutputsFeedbackBanner({ runErrored: false }, { dataPartner: DATA_PARTNER })).toEqual({
+        expect(
+            withBodyText(researcherOutputsFeedbackBanner({ runErrored: false }, { dataPartner: DATA_PARTNER })),
+        ).toEqual({
             variant: 'action',
             title: 'Feedback available',
             body: `${DATA_PARTNER} has shared feedback on the latest code run. No output files were shared. When you are ready, update your code and resubmit.`,
@@ -178,8 +189,8 @@ describe('researcherOutputsFeedbackBanner', () => {
             dataPartner: DATA_PARTNER,
         })
 
-        expect(withheld.body).not.toBe(shared.body)
-        expect(withheld.body).toContain('No output files were shared')
+        expect(nodeText(withheld.body)).not.toBe(shared.body)
+        expect(nodeText(withheld.body)).toContain('No output files were shared')
     })
 })
 

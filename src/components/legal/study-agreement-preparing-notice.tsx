@@ -1,6 +1,7 @@
 'use client'
 
 import type { FC } from 'react'
+import { OrgName } from '@/components/study/org-name'
 import { StatusAlert } from '@/components/study/status-alert'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from './require-study-agreement'
@@ -39,7 +40,12 @@ export const StudyAgreementPreparingNotice: FC<Props> = ({
 
     if (status?.state !== 'none') return null
 
-    const signatories = `${consequence} until the required ${status.researchLabName} and ${status.dataPartnerName} signatories have signed the ${legalDocumentTypeLabels.SLA}.`
+    const signatories = (
+        <>
+            {consequence} until the required <OrgName>{status.researchLabName}</OrgName> and{' '}
+            <OrgName>{status.dataPartnerName}</OrgName> signatories have signed the {legalDocumentTypeLabels.SLA}.
+        </>
+    )
 
     if (tone === 'informative')
         return (

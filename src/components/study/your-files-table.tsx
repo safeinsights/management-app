@@ -1,14 +1,26 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { ActionIcon, Anchor, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import { useHover } from '@mantine/hooks'
+import {
+    ActionIcon,
+    Anchor,
+    Badge,
+    Divider,
+    Group,
+    HoverCard,
+    Table,
+    Text,
+    Tooltip,
+    UnstyledButton,
+} from '@mantine/core'
 import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { LocalDateTime } from '@/components/local-date-time'
 import { DATE_TIME_FORMAT } from '@/lib/dates'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
-import { semanticColor } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
 const FILE_NAME_MAX_CHARS = 50
@@ -69,7 +81,7 @@ const MainFileColumnHeader: FC = () => (
         <HoverCard width={280} withArrow shadow="md" position="top">
             <HoverCard.Target>
                 <Text component="span" display="inline-flex" aria-label="Main file info">
-                    <InfoIcon size={14} aria-hidden />
+                    <InfoIcon size={14} weight="fill" color={semanticColor('icon.light')} aria-hidden />
                 </Text>
             </HoverCard.Target>
             <HoverCard.Dropdown>
@@ -134,16 +146,17 @@ type FileNameCellProps = {
     fileName: string
     isTemplate: boolean
     dataPartnerName: string
+    isRowHovered: boolean
     onView: (fileName: string) => void
 }
 
-const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => (
+const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, isRowHovered, onView }) => (
     <Group gap="xs" wrap="nowrap">
         <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
             <Anchor
                 component="button"
                 type="button"
-                underline="hover"
+                underline={isRowHovered ? 'always' : 'hover'}
                 c={semanticColor('text.primary')}
                 inherit
                 aria-label={`View ${fileName}`}
@@ -248,35 +261,49 @@ const FileRow: FC<FileRowProps> = ({
     onEdit,
     onDownload,
     onDelete,
-}) => (
-    <Table.Tr>
-        <Table.Td>
-            <MainFileStar fileName={file.name} isMain={isMain} isEditable={isEditable} onSelect={onSelectMain} />
-        </Table.Td>
-        <Table.Td>
-            <FileNameCell
-                fileName={file.name}
-                isTemplate={isTemplate}
-                dataPartnerName={dataPartnerName}
-                onView={onView}
-            />
-        </Table.Td>
-        <Table.Td>
-            <LastActivityCell activity={file.lastActivity} />
-        </Table.Td>
-        <Table.Td>
-            <FileActions
-                fileName={file.name}
-                isMain={isMain}
-                isEditable={isEditable}
-                canEditInIde={canEditInIde}
-                ideOwnerName={ideOwnerName}
-                onEdit={onEdit}
-                onDownload={onDownload}
-                onDelete={onDelete}
-            />
-        </Table.Td>
-    </Table.Tr>
+}) => {
+    // The design underlines the file name while anywhere on its row is hovered.
+    const { hovered, ref } = useHover<HTMLTableRowElement>()
+    return (
+        <Table.Tr ref={ref}>
+            <Table.Td ta="center">
+                <MainFileStar fileName={file.name} isMain={isMain} isEditable={isEditable} onSelect={onSelectMain} />
+            </Table.Td>
+            <Table.Td>
+                <FileNameCell
+                    fileName={file.name}
+                    isTemplate={isTemplate}
+                    dataPartnerName={dataPartnerName}
+                    isRowHovered={hovered}
+                    onView={onView}
+                />
+            </Table.Td>
+            <Table.Td>
+                <LastActivityCell activity={file.lastActivity} />
+            </Table.Td>
+            <Table.Td>
+                <FileActions
+                    fileName={file.name}
+                    isMain={isMain}
+                    isEditable={isEditable}
+                    canEditInIde={canEditInIde}
+                    ideOwnerName={ideOwnerName}
+                    onEdit={onEdit}
+                    onDownload={onDownload}
+                    onDelete={onDelete}
+                />
+            </Table.Td>
+        </Table.Tr>
+    )
+}
+
+const DeleteFileBody: FC<{ fileName: string }> = ({ fileName }) => (
+    <>
+        <Text span inherit fw={fontWeight.semibold}>
+            {fileName}
+        </Text>{' '}
+        will be permanently removed from your study and cannot be recovered.
+    </>
 )
 
 type YourFilesTableProps = {
@@ -317,10 +344,16 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
 
     return (
         <>
-            <Table verticalSpacing="md" layout="fixed" w="100%">
+            <Table
+                verticalSpacing="md"
+                layout="fixed"
+                w="100%"
+                highlightOnHover
+                highlightOnHoverColor={semanticColor('surface.sunken')}
+            >
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={COLUMN_WIDTHS.mainFile}>
+                        <Table.Th w={COLUMN_WIDTHS.mainFile} pl="md">
                             <MainFileColumnHeader />
                         </Table.Th>
                         <Table.Th miw={COLUMN_WIDTHS.fileName}>File name</Table.Th>
@@ -348,14 +381,17 @@ export const YourFilesTable: FC<YourFilesTableProps> = ({
                     ))}
                 </Table.Tbody>
             </Table>
+            {/* Mantine drops the last row's border; the design closes the table with one. */}
+            <Divider />
 
             <SubmitConfirmationModal
                 isOpen={pendingDelete !== null}
                 onClose={() => setPendingDelete(null)}
                 onConfirm={confirmDelete}
-                title="Delete file"
-                body={`${pendingDelete ?? ''} will be permanently removed from your study and cannot be recovered.`}
+                title="Delete file?"
+                body={<DeleteFileBody fileName={pendingDelete ?? ''} />}
                 confirmLabel="Delete file"
+                variant="error"
             />
         </>
     )

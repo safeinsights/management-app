@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { LabName } from '@/components/study/lab-name'
+import { OrgName } from '@/components/study/org-name'
 import { STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import type { ReviewDecision, StudyStatus } from '@/database/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
@@ -23,8 +23,12 @@ const AWAITING_PROPOSAL_REVIEW =
 // Shared by both errored-run banners
 const RESOLVE_CODE_ERROR_TITLE = 'Resolve the code error to proceed'
 
-const awaitingCodeReview = (dataPartner: string) =>
-    `Your code and an AI summary of its behavior will be shared with ${dataPartner}. An email notification will be sent as your code progresses through the review. Reviews typically take 7 to 10 days.`
+const awaitingCodeReview = (dataPartner: string) => (
+    <>
+        Your code and an AI summary of its behavior will be shared with <OrgName>{dataPartner}</OrgName>. An email
+        notification will be sent as your code progresses through the review. Reviews typically take 7 to 10 days.
+    </>
+)
 
 const resubmissionTitle = (noun: string, dataPartner: string, version: number) =>
     version > 1 ? `${noun} v${version}.0 resubmitted to ${dataPartner}` : `${noun} submitted to ${dataPartner}`
@@ -44,19 +48,34 @@ export function researcherProposalBanner(
             return {
                 variant: STATUS_ALERT_VARIANT.action,
                 title: 'Revision requested',
-                body: `${dataPartner} has reviewed your proposal and requested changes. Read their feedback below, then revise and resubmit.`,
+                body: (
+                    <>
+                        <OrgName>{dataPartner}</OrgName> has reviewed your proposal and requested changes. Read their
+                        feedback below, then revise and resubmit.
+                    </>
+                ),
             }
         case 'APPROVED':
             return {
                 variant: STATUS_ALERT_VARIANT.success,
                 title: 'Proposal approved',
-                body: `${dataPartner} has reviewed and approved your proposal. Read their feedback below, then proceed to the next step.`,
+                body: (
+                    <>
+                        <OrgName>{dataPartner}</OrgName> has reviewed and approved your proposal. Read their feedback
+                        below, then proceed to the next step.
+                    </>
+                ),
             }
         case 'REJECTED':
             return {
                 variant: STATUS_ALERT_VARIANT.decline,
                 title: 'Proposal declined',
-                body: `${dataPartner} has reviewed your proposal and is unable to support it. Read their feedback below for more details.`,
+                body: (
+                    <>
+                        <OrgName>{dataPartner}</OrgName> has reviewed your proposal and is unable to support it. Read
+                        their feedback below for more details.
+                    </>
+                ),
             }
         default:
             return null
@@ -77,19 +96,36 @@ export function researcherCodeDecisionBanner(status: CodeDecisionStatus, { dataP
             return {
                 variant: STATUS_ALERT_VARIANT.success,
                 title: 'Code approved',
-                body: `${dataPartner} has reviewed and approved your code to run in their secure enclave. An email notification will be sent when outputs become available.`,
+                body: (
+                    <>
+                        <OrgName>{dataPartner}</OrgName> has reviewed and approved your code to run in their secure
+                        enclave. An email notification will be sent when outputs become available.
+                    </>
+                ),
             }
         case 'CODE-CHANGES-REQUESTED':
             return {
                 variant: STATUS_ALERT_VARIANT.action,
                 title: 'Revision requested on your code',
-                body: `${dataPartner} has reviewed your code and requested changes or more information. Read the feedback below, then update your code and resubmit it.`,
+                body: (
+                    <>
+                        <OrgName>{dataPartner}</OrgName> has reviewed your code and requested changes or more
+                        information. Read the feedback below, then update your code and resubmit it.
+                    </>
+                ),
             }
         case 'CODE-REJECTED':
             return {
                 variant: STATUS_ALERT_VARIANT.decline,
                 title: 'Code declined',
-                body: `${dataPartner} has determined this code does not meet the requirements to proceed. Please review their feedback below. No further code submissions will be accepted for this study, but you may submit a new study proposal. If you believe this decision was made in error, contact SafeInsights.`,
+                body: (
+                    <>
+                        <OrgName>{dataPartner}</OrgName> has determined this code does not meet the requirements to
+                        proceed. Please review their feedback below. No further code submissions will be accepted for
+                        this study, but you may submit a new study proposal. If you believe this decision was made in
+                        error, contact SafeInsights.
+                    </>
+                ),
             }
     }
 }
@@ -109,7 +145,12 @@ export function researcherSharedOutputsBanner(
                 locked: {
                     variant: STATUS_ALERT_VARIANT.action,
                     title: 'Decrypt to view your outputs and feedback',
-                    body: `${dataPartner} has reviewed and shared the outputs for the latest code run. Enter your security key to view them.`,
+                    body: (
+                        <>
+                            <OrgName>{dataPartner}</OrgName> has reviewed and shared the outputs for the latest code
+                            run. Enter your security key to view them.
+                        </>
+                    ),
                 },
                 unlocked: {
                     variant: STATUS_ALERT_VARIANT.success,
@@ -123,7 +164,12 @@ export function researcherSharedOutputsBanner(
                 locked: {
                     variant: STATUS_ALERT_VARIANT.action,
                     title: 'Code run errored. Decrypt to view your outputs and feedback',
-                    body: `${dataPartner} has shared the outputs and feedback for the latest code run. Enter your security key to view them and diagnose the issue.`,
+                    body: (
+                        <>
+                            <OrgName>{dataPartner}</OrgName> has shared the outputs and feedback for the latest code
+                            run. Enter your security key to view them and diagnose the issue.
+                        </>
+                    ),
                 },
                 unlocked: {
                     variant: STATUS_ALERT_VARIANT.action,
@@ -143,13 +189,23 @@ export function researcherOutputsFeedbackBanner(
         return {
             variant: STATUS_ALERT_VARIANT.action,
             title: RESOLVE_CODE_ERROR_TITLE,
-            body: `${dataPartner} has shared feedback on why the latest code run failed. No output files were shared. Review the feedback below, then update your code and resubmit.`,
+            body: (
+                <>
+                    <OrgName>{dataPartner}</OrgName> has shared feedback on why the latest code run failed. No output
+                    files were shared. Review the feedback below, then update your code and resubmit.
+                </>
+            ),
         }
     }
     return {
         variant: STATUS_ALERT_VARIANT.action,
         title: 'Feedback available',
-        body: `${dataPartner} has shared feedback on the latest code run. No output files were shared. When you are ready, update your code and resubmit.`,
+        body: (
+            <>
+                <OrgName>{dataPartner}</OrgName> has shared feedback on the latest code run. No output files were
+                shared. When you are ready, update your code and resubmit.
+            </>
+        ),
     }
 }
 
@@ -177,7 +233,12 @@ export function researcherOutputsAwaitingReviewBanner({ dataPartner }: BannerPar
     return {
         variant: STATUS_ALERT_VARIANT.informative,
         title: `Code run complete, outputs under review by ${dataPartner}`,
-        body: `Outputs have now been made available to ${dataPartner} for their review. An email notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.`,
+        body: (
+            <>
+                Outputs have now been made available to <OrgName>{dataPartner}</OrgName> for their review. An email
+                notification will be sent when outputs or feedback are shared. Reviews typically take 7 to 10 days.
+            </>
+        ),
     }
 }
 
@@ -197,7 +258,7 @@ export function reviewerProposalNeedsReviewBanner({ researchLab, version = 1 }: 
             version > 1 ? `Revised proposal submitted by ${researchLab}` : `New proposal submitted by ${researchLab}`,
         body: (
             <>
-                <LabName>{researchLab}</LabName> is requesting permission to run their code in your secure enclave.
+                <OrgName>{researchLab}</OrgName> is requesting permission to run their code in your secure enclave.
                 Review the proposal below and share your decision and feedback.
             </>
         ),
@@ -216,7 +277,7 @@ export function reviewerProposalDecisionBanner(
                 body: (
                     <>
                         This proposal has been approved. An email notification will be sent when{' '}
-                        <LabName>{researchLab}</LabName> moves to the next step.
+                        <OrgName>{researchLab}</OrgName> moves to the next step.
                     </>
                 ),
             }
@@ -227,7 +288,7 @@ export function reviewerProposalDecisionBanner(
                 body: (
                     <>
                         A revision has been requested. An email notification will be sent when{' '}
-                        <LabName>{researchLab}</LabName> resubmits the proposal.
+                        <OrgName>{researchLab}</OrgName> resubmits the proposal.
                     </>
                 ),
             }
@@ -266,7 +327,7 @@ export function reviewerCodeDecisionBanner(
                 body: (
                     <>
                         A revision has been requested. An email notification will be sent when{' '}
-                        <LabName>{researchLab}</LabName> resubmits their code.
+                        <OrgName>{researchLab}</OrgName> resubmits their code.
                     </>
                 ),
             }
@@ -295,7 +356,7 @@ export function reviewerOutputsDecisionBanner(
             body: (
                 <>
                     The study code failed to process. Outputs and feedback have been shared with{' '}
-                    <LabName>{researchLab}</LabName>. We will notify you when they resubmit.
+                    <OrgName>{researchLab}</OrgName>. We will notify you when they resubmit.
                 </>
             ),
         }
@@ -306,7 +367,7 @@ export function reviewerOutputsDecisionBanner(
             title: attributedTo('Code errored. Feedback shared', reviewerName),
             body: (
                 <>
-                    The study code failed to process. Feedback has been shared with <LabName>{researchLab}</LabName>{' '}
+                    The study code failed to process. Feedback has been shared with <OrgName>{researchLab}</OrgName>{' '}
                     without the outputs. We will notify you when they resubmit.
                 </>
             ),
@@ -318,7 +379,7 @@ export function reviewerOutputsDecisionBanner(
             title: attributedTo('Outputs and feedback shared', reviewerName),
             body: (
                 <>
-                    The outputs from the latest code run were reviewed and shared with <LabName>{researchLab}</LabName>{' '}
+                    The outputs from the latest code run were reviewed and shared with <OrgName>{researchLab}</OrgName>{' '}
                     along with your feedback.
                 </>
             ),
@@ -329,7 +390,7 @@ export function reviewerOutputsDecisionBanner(
         title: attributedTo('Feedback shared', reviewerName),
         body: (
             <>
-                Feedback has been shared with <LabName>{researchLab}</LabName> without the outputs. We will notify you
+                Feedback has been shared with <OrgName>{researchLab}</OrgName> without the outputs. We will notify you
                 when they resubmit.
             </>
         ),
