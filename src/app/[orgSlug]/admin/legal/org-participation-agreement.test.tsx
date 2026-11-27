@@ -55,6 +55,26 @@ describe('OrgParticipationAgreement', () => {
         expect(screen.getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
     })
 
+    it('divides the title from the effective date', async () => {
+        const { org } = await mockSessionWithTestData({
+            orgSlug: faker.string.alpha(10),
+            orgType: 'enclave',
+            isAdmin: true,
+        })
+        await publishParticipationAgreement(org.id, 'DOPA', '2026-04-04')
+        await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave', isAdmin: true })
+
+        renderWithProviders(<OrgParticipationAgreement orgSlug={org.slug} type="DOPA" />)
+
+        await waitFor(() => expect(screen.getByText('Effective on: Apr 04, 2026')).toBeDefined())
+        const divider = screen.getByRole('separator')
+        const heading = screen.getByRole('heading', { name: 'Data Organization Participation Agreement' })
+        expect(heading.compareDocumentPosition(divider)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+        expect(divider.compareDocumentPosition(screen.getByText('Effective on: Apr 04, 2026'))).toBe(
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        )
+    })
+
     it('titles the panel with the lab agreement name for a Research Lab', async () => {
         const { org } = await mockSessionWithTestData({
             orgSlug: faker.string.alpha(10),

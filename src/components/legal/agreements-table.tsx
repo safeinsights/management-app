@@ -41,9 +41,7 @@ export const signedAtColumn = <T extends Pick<AgreementRow, 'signedAt'>>(
     render: (row) => <>{exemptionFor?.(row) ?? formatDayString(row.signedAt)}</>,
 })
 
-export const ackedAtColumn = <T extends Pick<AgreementRow, 'ackedAt'>>(
-    exemptionFor?: Exemption<T>,
-): DataTableColumn<T> => ({
+const ackedAtColumn = <T extends Pick<AgreementRow, 'ackedAt'>>(exemptionFor?: Exemption<T>): DataTableColumn<T> => ({
     accessor: 'ackedAt',
     title: 'Acknowledged on',
     // Over the design's width: with our cell padding the header truncates below this.
