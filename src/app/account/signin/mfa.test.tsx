@@ -1,8 +1,11 @@
 import {
+    advancesSignIn,
+    clerkApiError,
     db,
     faker,
     insertKeylessInvitedUser,
     mockSessionWithTestData,
+    mockSignIn,
     renderWithProviders,
     screen,
     testEmail,
@@ -12,30 +15,22 @@ import {
 } from '@/tests/unit.helpers'
 import { readJoinedOrg } from '@/lib/joined-org'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { useSignIn } from '@clerk/nextjs/legacy'
 import router from 'next-router-mock'
 import { describe, expect, it, vi } from 'vitest'
 import { RequestMFA } from './mfa'
 
 const mockSecondFactor = () => {
-    ;(useSignIn as Mock).mockReturnValue({ isLoaded: true, setActive: vi.fn() })
     ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
     // RequestMFA renders nothing once Clerk reports a live session; this challenge happens first.
     ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false })
 
-    return {
-        signIn: {
-            status: 'needs_second_factor',
-            supportedSecondFactors: [{ strategy: 'totp' }],
-            attemptSecondFactor: vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'session-id' }),
-            reload: vi.fn(),
-        },
-        usingSMS: false,
-    }
+    const signIn = mockSignIn({ status: 'needs_second_factor', supportedSecondFactors: [{ strategy: 'totp' }] })
+    signIn.mfa.verifyTOTP = advancesSignIn(signIn, 'complete')
+    return signIn
 }
 
-const submitTotpCode = async (mfa: ReturnType<typeof mockSecondFactor>) => {
-    renderWithProviders(<RequestMFA mfa={mfa as never} />)
+const submitTotpCode = async () => {
+    renderWithProviders(<RequestMFA mfa />)
 
     await userEvent.click(screen.getByRole('button', { name: /authenticator app verification/i }))
     await userEvent.type(await screen.findByLabelText('Digit 1 of 6'), '123456')
@@ -47,7 +42,8 @@ describe('RequestMFA', () => {
         const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
         router.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
 
-        await submitTotpCode(mockSecondFactor())
+        mockSecondFactor()
+        await submitTotpCode()
 
         await waitFor(async () => {
             const membership = await db
@@ -76,7 +72,8 @@ describe('RequestMFA', () => {
         const { user, invitingOrg, invite } = await insertKeylessInvitedUser({ invitedEmail: testEmail() })
         router.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
 
-        await submitTotpCode(mockSecondFactor())
+        mockSecondFactor()
+        await submitTotpCode()
 
         await waitFor(async () => {
             const membership = await db
@@ -102,7 +99,8 @@ describe('RequestMFA', () => {
         const spentInvite = faker.string.uuid()
         router.setCurrentUrl(`/account/signin?invite_id=${spentInvite}`)
 
-        await submitTotpCode(mockSecondFactor())
+        mockSecondFactor()
+        await submitTotpCode()
 
         await waitFor(() =>
             expect(router.asPath).toBe(
@@ -117,7 +115,8 @@ describe('RequestMFA', () => {
         const { invitingOrg, invite } = await insertKeylessInvitedUser()
         router.setCurrentUrl(`/account/signin?invite_id=${invite.id}&redirect_url=%2Fopenstax-lab%2Fdashboard`)
 
-        await submitTotpCode(mockSecondFactor())
+        mockSecondFactor()
+        await submitTotpCode()
 
         await waitFor(() =>
             expect(router.asPath).toBe(
@@ -131,7 +130,8 @@ describe('RequestMFA', () => {
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         router.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax-lab%2Fdashboard')
 
-        await submitTotpCode(mockSecondFactor())
+        mockSecondFactor()
+        await submitTotpCode()
 
         await waitFor(() =>
             expect(router.asPath).toBe(`/account/keys?redirect_url=${encodeURIComponent('/openstax-lab/dashboard')}`),
@@ -143,7 +143,8 @@ describe('RequestMFA', () => {
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         router.setCurrentUrl('/account/signin')
 
-        await submitTotpCode(mockSecondFactor())
+        mockSecondFactor()
+        await submitTotpCode()
 
         await waitFor(() => expect(router.asPath).toBe('/account/keys'))
     })
@@ -157,8 +158,51 @@ describe('RequestMFA', () => {
             .execute()
         router.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax-lab%2Fdashboard')
 
-        await submitTotpCode(mockSecondFactor())
+        mockSecondFactor()
+        await submitTotpCode()
 
         await waitFor(() => expect(router.asPath).toBe('/openstax-lab/dashboard'))
+    })
+
+    it('finalizes the session after a correct authenticator code', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+        router.setCurrentUrl('/account/signin')
+        const signIn = mockSecondFactor()
+
+        await submitTotpCode()
+
+        await waitFor(() => expect(signIn.finalize).toHaveBeenCalledOnce())
+        expect(signIn.mfa.verifyTOTP).toHaveBeenCalledWith({ code: '123456' })
+    })
+
+    it('shows the wrong-code message and stays on the challenge', async () => {
+        router.setCurrentUrl('/account/signin')
+        const signIn = mockSecondFactor()
+        signIn.mfa.verifyTOTP = vi.fn().mockResolvedValue(clerkApiError('form_code_incorrect', 'Incorrect code'))
+
+        await submitTotpCode()
+
+        expect(await screen.findByText('Invalid verification code. Please try again.')).toBeInTheDocument()
+        expect(signIn.finalize).not.toHaveBeenCalled()
+        expect(router.asPath).toBe('/account/signin')
+    })
+
+    it('sends an SMS code when the user picks SMS', async () => {
+        ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
+        ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false })
+        const signIn = mockSignIn({
+            status: 'needs_second_factor',
+            supportedSecondFactors: [{ strategy: 'phone_code', safeIdentifier: '+•• ••• ••42' }],
+        })
+        renderWithProviders(<RequestMFA mfa />)
+
+        await userEvent.click(screen.getByRole('button', { name: /sms verification/i }))
+
+        expect(await screen.findByText(/phone number ending in ••42/)).toBeInTheDocument()
+        expect(signIn.mfa.sendPhoneCode).toHaveBeenCalledOnce()
+
+        await userEvent.click(screen.getByRole('button', { name: /resend code/i }))
+
+        await waitFor(() => expect(signIn.mfa.sendPhoneCode).toHaveBeenCalledTimes(2))
     })
 })

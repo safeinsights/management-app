@@ -2,17 +2,18 @@
 
 import { useMutation } from '@/hooks/query-wrappers'
 import { errorToString } from '@/lib/errors'
-import { useSignIn } from '@clerk/nextjs/legacy'
+import { useSignIn } from '@clerk/nextjs'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import type { Step } from './use-request-mfa'
+import { throwOnClerkError } from './logic'
 import { useCompleteSignIn } from './use-complete-sign-in'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void }) => {
-    const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
+    const { signIn } = useSignIn()
     const completeSignIn = useCompleteSignIn()
 
     const form = useForm({
@@ -25,16 +26,13 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
 
     const { mutate: signInWithRecoveryCode, isPending: isProcessing } = useMutation({
         mutationFn: async (values: typeof form.values) => {
-            if (!signIn) throw new Error('SignIn not loaded')
+            await throwOnClerkError(signIn.mfa.verifyBackupCode({ code: values.code.trim() }))
 
-            const code = values.code.trim()
-            const result = await signIn.attemptSecondFactor({ strategy: 'backup_code', code })
-
-            if (result.status !== 'complete') {
+            if (signIn.status !== 'complete') {
                 throw new Error('Verification failed')
             }
 
-            await setActive?.({ session: result.createdSessionId })
+            await throwOnClerkError(signIn.finalize())
         },
         onSuccess: async () => {
             showToast({
@@ -52,8 +50,6 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
             )
         },
     })
-
-    if (!isSignInLoaded) return null
 
     return (
         <Stack mb="xxl">

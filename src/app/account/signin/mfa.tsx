@@ -113,6 +113,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         onMFASubmit,
         onSelectMethod,
         resetFlow,
+        resendSmsCode,
         maskedPhone,
     } = useRequestMfa(mfa)
 
@@ -130,7 +131,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
             />
             <VerifyCode
                 isVisible={step === 'verify'}
-                signIn={mfa.signIn}
+                onResendCode={resendSmsCode}
                 phoneNumber={maskedPhone}
                 form={form}
                 isVerifyingCode={isPending}

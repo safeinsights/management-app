@@ -1,10 +1,13 @@
 import {
+    advancesSignIn,
+    clerkApiError,
     db,
     findFieldErrorShownOnce,
     fireEvent,
     insertKeylessInvitedUser,
     Mock,
     mockSessionWithTestData,
+    mockSignIn,
     renderWithProviders,
     screen,
     userEvent,
@@ -13,7 +16,6 @@ import {
 import { vi, describe, it, expect } from 'vitest'
 import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { useAuth } from '@clerk/nextjs'
-import { useSignIn } from '@clerk/nextjs/legacy'
 import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
@@ -25,17 +27,8 @@ describe('RecoveryCodeSignIn', () => {
         await mockSessionWithTestData({ orgType: 'enclave' })
         ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
 
-        const mockAttemptSecondFactor = vi.fn().mockResolvedValue({
-            status: 'complete',
-            createdSessionId: 'test-session-id',
-        })
-        const mockSetActive = vi.fn()
-
-        ;(useSignIn as Mock).mockReturnValue({
-            isLoaded: true,
-            signIn: { attemptSecondFactor: mockAttemptSecondFactor },
-            setActive: mockSetActive,
-        })
+        const signIn = mockSignIn({ status: 'needs_second_factor' })
+        signIn.mfa.verifyBackupCode = advancesSignIn(signIn, 'complete')
 
         const setStep = vi.fn()
         renderWithProviders(<RecoveryCodeSignIn setStep={setStep} />)
@@ -47,11 +40,8 @@ describe('RecoveryCodeSignIn', () => {
         fireEvent.click(submitBtn)
 
         await waitFor(() => {
-            expect(mockAttemptSecondFactor).toHaveBeenCalledWith({
-                strategy: 'backup_code',
-                code: 'testcode123',
-            })
-            expect(mockSetActive).toHaveBeenCalledWith({ session: 'test-session-id' })
+            expect(signIn.mfa.verifyBackupCode).toHaveBeenCalledWith({ code: 'testcode123' })
+            expect(signIn.finalize).toHaveBeenCalledOnce()
             expect(memoryRouter.asPath).toBe(Routes.dashboard)
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -66,15 +56,8 @@ describe('RecoveryCodeSignIn', () => {
     it('accepts a pending invite and routes a keyless user through key generation', async () => {
         const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
         memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
-        ;(useSignIn as Mock).mockReturnValue({
-            isLoaded: true,
-            signIn: {
-                attemptSecondFactor: vi
-                    .fn()
-                    .mockResolvedValue({ status: 'complete', createdSessionId: 'test-session-id' }),
-            },
-            setActive: vi.fn(),
-        })
+        const signIn = mockSignIn({ status: 'needs_second_factor' })
+        signIn.mfa.verifyBackupCode = advancesSignIn(signIn, 'complete')
         ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
 
         renderWithProviders(<RecoveryCodeSignIn setStep={vi.fn()} />)
@@ -101,11 +84,6 @@ describe('RecoveryCodeSignIn', () => {
     })
 
     it('shows a code error one time, with the error icon', async () => {
-        ;(useSignIn as Mock).mockReturnValue({
-            isLoaded: true,
-            signIn: { attemptSecondFactor: vi.fn() },
-            setActive: vi.fn(),
-        })
         renderWithProviders(<RecoveryCodeSignIn setStep={vi.fn()} />)
 
         const input = screen.getByLabelText(/Enter recovery code/i)
@@ -114,5 +92,19 @@ describe('RecoveryCodeSignIn', () => {
 
         await findFieldErrorShownOnce('Only alphanumeric characters are allowed')
         expect(input).toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('shows the incorrect-code message one time when Clerk rejects the code', async () => {
+        const signIn = mockSignIn({
+            status: 'needs_second_factor',
+            mfa: { verifyBackupCode: vi.fn().mockResolvedValue(clerkApiError('form_code_incorrect', 'Incorrect code')) },
+        })
+        renderWithProviders(<RecoveryCodeSignIn setStep={vi.fn()} />)
+
+        await userEvent.type(screen.getByLabelText(/Enter recovery code/i), 'wrongcode123')
+        fireEvent.click(screen.getByRole('button', { name: /Sign in/i }))
+
+        await findFieldErrorShownOnce('Code is incorrect or already in use. Please try another.')
+        expect(signIn.finalize).not.toHaveBeenCalled()
     })
 })
