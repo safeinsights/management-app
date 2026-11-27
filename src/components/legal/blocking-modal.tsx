@@ -27,6 +27,7 @@ export const BlockingModal: FC<Props> = ({ title, size = 'lg', children }) => (
         withCloseButton={false}
         closeOnEscape={false}
         closeOnClickOutside={false}
+        variant="legal"
     >
         {children}
     </Modal>
