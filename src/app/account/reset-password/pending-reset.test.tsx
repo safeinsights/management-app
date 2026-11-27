@@ -113,11 +113,13 @@ describe('PendingReset', () => {
     // A rejected new password leaves the code verified; sending it again would fail as already used.
     it('submits only the new password when the code was verified by an earlier attempt', async () => {
         await insertKeylessInvitedUser()
+        memoryRouter.setCurrentUrl('/account/reset-password')
         const signIn = mockCompletedReset('needs_new_password')
 
         await submitReset()
 
-        await waitFor(() => expect(signIn.finalize).toHaveBeenCalledOnce())
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.accountKeys))
+        expect(signIn.finalize).toHaveBeenCalledOnce()
         expect(signIn.resetPasswordEmailCode.verifyCode).not.toHaveBeenCalled()
         expect(signIn.resetPasswordEmailCode.submitPassword).toHaveBeenCalledWith({
             password: VALID_PASSWORD,

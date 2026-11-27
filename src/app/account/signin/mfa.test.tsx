@@ -14,6 +14,7 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { readJoinedOrg } from '@/lib/joined-org'
+import { Routes } from '@/lib/routes'
 import { useAuth, useUser } from '@clerk/nextjs'
 import router from 'next-router-mock'
 import { describe, expect, it, vi } from 'vitest'
@@ -171,8 +172,9 @@ describe('RequestMFA', () => {
 
         await submitTotpCode()
 
-        await waitFor(() => expect(signIn.finalize).toHaveBeenCalledOnce())
+        await waitFor(() => expect(router.asPath).toBe(Routes.dashboard))
         expect(signIn.mfa.verifyTOTP).toHaveBeenCalledWith({ code: '123456' })
+        expect(signIn.finalize).toHaveBeenCalledOnce()
     })
 
     it('shows the wrong-code message and stays on the challenge', async () => {
