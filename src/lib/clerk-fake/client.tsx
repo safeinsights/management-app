@@ -6,11 +6,11 @@
 // throw "Maximum update depth exceeded".
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
 import { clearRoleCookieFromDocument, writeRoleCookieToDocument } from './cookie'
-import { defaultOrgSlug, FAKE_ROLES, type FakeRole } from './fixtures'
+import { defaultOrgSlug } from './fixtures'
 import { buildFakeUser } from './user-resource'
-import { createFakeSignIn } from './sign-in-resource'
+import { fakeSignIn, type FakeSignIn } from './sign-in-resource'
 import { getFixture, getServerFixture, LOADING, notifyAuthChanged, subscribe, type FixtureState } from './store'
 
 function useFixtureState(): FixtureState {
@@ -21,7 +21,7 @@ function useFixtureState(): FixtureState {
 // never trips during tests.
 const SESSION_ACTIVE_AT = new Date()
 
-// Real Clerk's ClerkProvider refreshes the router after setActive and signOut, so server components
+// Real Clerk's ClerkProvider refreshes the router after finalize and signOut, so server components
 // such as the root layout re-render for the new session.
 function useAuthChanged() {
     const router = useRouter()
@@ -105,25 +105,22 @@ export function useClerk() {
     return useMemo(() => ({ isLoaded: true, signOut, openUserProfile }), [signOut, openUserProfile])
 }
 
+const NO_SIGN_IN_ERRORS = { fields: {}, raw: null, global: null }
+
 export function useSignIn() {
-    const [signIn] = useState(createFakeSignIn)
     const authChanged = useAuthChanged()
-    // setActive may be called from a different component (mfa.tsx) than the one that ran
-    // create() (sign-in-form.tsx), so derive the role from the session id, not signIn.role.
-    const setActive = useCallback(
-        async (params: { session?: unknown } | unknown) => {
-            const session = (params as { session?: unknown })?.session ?? params
-            const id = typeof session === 'string' ? session : (session as { id?: string })?.id
-            const match = id?.match(new RegExp(`^e2e-session-(${FAKE_ROLES.join('|')})$`))
-            const role = (match?.[1] as FakeRole | undefined) ?? signIn.role
-            if (role) {
-                writeRoleCookieToDocument(role)
+    return useMemo(() => {
+        // Reads fall through to the shared attempt; finalize needs this hook's router.
+        const signIn = Object.create(fakeSignIn) as FakeSignIn & { finalize(): Promise<{ error: null }> }
+        signIn.finalize = async () => {
+            if (fakeSignIn.createdSessionId && fakeSignIn.role) {
+                writeRoleCookieToDocument(fakeSignIn.role)
                 authChanged()
             }
-        },
-        [signIn, authChanged],
-    )
-    return useMemo(() => ({ isLoaded: true, signIn, setActive }), [signIn, setActive])
+            return { error: null }
+        }
+        return { signIn, errors: NO_SIGN_IN_ERRORS, fetchStatus: 'idle' as const }
+    }, [authChanged])
 }
 
 // Real Clerk puts a re-auth challenge in front of the fn; the fake has no challenge.
